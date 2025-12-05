@@ -72,11 +72,14 @@ const Register = () => {
     },
   ];
 
-  const mockExistingEmails = [
+ /* const mockExistingEmails = [
     'admin@fileguard.com',
     'user@fileguard.com',
     'test@example.com',
-  ];
+  ];*/
+
+  
+
 
   useEffect(() => {
     calculatePasswordStrength(formData.password);
@@ -127,9 +130,9 @@ const Register = () => {
       newErrors.email = 'El correo electrónico es obligatorio';
     } else if (!emailRegex.test(formData.email)) {
       newErrors.email = 'Formato de correo electrónico inválido';
-    } else if (mockExistingEmails.includes(formData.email.toLowerCase())) {
+    } /*else if (mockExistingEmails.includes(formData.email.toLowerCase())) {
       newErrors.email = 'Este correo electrónico ya está registrado';
-    }
+    }*/
 
     if (!formData.password) {
       newErrors.password = 'La contraseña es obligatoria';
@@ -165,16 +168,25 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      console.log('Registration data:', {
+  const { data, error } = await supabase.auth.signUp({
+    email: formData.email,
+    password: formData.password,
+    options: {
+      data: {
         name: formData.name,
-        email: formData.email,
         department: formData.department,
         role: formData.role,
-      });
+      },
+    },
+  });
 
-      setRegistrationComplete(true);
+  if (error) {
+    setErrors({ email: error.message });
+    setIsLoading(false);
+    return;
+  }
+
+  setRegistrationComplete(true);
     } catch (error) {
       console.error('Registration error:', error);
       setErrors({
