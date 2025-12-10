@@ -10,15 +10,27 @@ import { es } from 'date-fns/locale';
 
 interface UserManagementTableProps {
   users: User[];
-  onEditUser: (userId: string) => void;
-  onViewPermissions: (userId: string) => void;
+  onEditUser: (id: string) => void;
+  onViewPermissions: (id: string) => void;
+  loading?: boolean;  // ⬅ AÑADIMOS ESTA LÍNEA
 }
+
 
 const UserManagementTable = ({
   users,
   onEditUser,
   onViewPermissions,
+  loading,
 }: UserManagementTableProps) => {
+
+   if (loading) {
+    return (
+      <p className="text-center p-6 text-muted-foreground">
+        Cargando usuarios...
+      </p>
+    );
+  }
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');

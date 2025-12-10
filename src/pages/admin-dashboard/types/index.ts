@@ -11,6 +11,15 @@ export interface User {
   filesAccessed: number;
   joinedDate: Date;
 }
+export type LogItem = {
+  id: string;
+  user_id?: string;
+  tipo: string;
+  file_name?: string;
+  details?: any;
+  created_at: string;
+};
+
 
 export interface Permission {
   resource: string;

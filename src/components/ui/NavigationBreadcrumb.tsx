@@ -5,7 +5,10 @@ interface BreadcrumbItem {
   label: string;
   path: string;
 }
-
+interface NavigationBreadcrumbProps {
+  customItems?: BreadcrumbItem[];
+  className?: string;
+}
 interface NavigationBreadcrumbProps {
   customItems?: BreadcrumbItem[];
   className?: string;
@@ -15,13 +18,18 @@ const NavigationBreadcrumb = ({ customItems, className = '' }: NavigationBreadcr
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Map de rutas -> nombres bonitos
   const routeLabels: Record<string, string> = {
     '/admin-dashboard': 'Panel de Control',
     '/permission-management': 'Gestión de Permisos',
     '/login': 'Iniciar Sesión',
     '/register': 'Registrarse',
+    '/file-upload': 'Mis Archivos',
+    '/settings': 'Configuración',
+    '/profile': 'Mi Perfil',
   };
-
+  
+  // Función que genera breadcrumbs automáticamente o usa los personalizados
   const generateBreadcrumbs = (): BreadcrumbItem[] => {
     if (customItems) return customItems;
 
@@ -33,7 +41,9 @@ const NavigationBreadcrumb = ({ customItems, className = '' }: NavigationBreadcr
     let currentPath = '';
     pathSegments.forEach((segment) => {
       currentPath += `/${segment}`;
-      const label = routeLabels[currentPath] || segment.charAt(0).toUpperCase() + segment.slice(1);
+      const label =
+        routeLabels[currentPath] ||
+        segment.charAt(0).toUpperCase() + segment.slice(1);
       breadcrumbs.push({ label, path: currentPath });
     });
 
@@ -61,7 +71,7 @@ const NavigationBreadcrumb = ({ customItems, className = '' }: NavigationBreadcr
                 className="text-muted-foreground flex-shrink-0"
               />
             )}
-            
+
             {isLast ? (
               <span className="font-medium text-foreground">{item.label}</span>
             ) : (

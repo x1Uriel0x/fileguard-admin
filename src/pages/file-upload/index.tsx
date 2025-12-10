@@ -3,8 +3,11 @@ import { supabase } from '../../lib/supabase';
 import FileUploadZone from './components/FileUploadZone';
 import FileListItem from './components/FileListItem';
 import type { UploadedFile, FileMetadata } from "./types";
+import FileList from "./components/FileList";
 
-import { Folder, Upload as UploadIcon } from 'lucide-react';
+
+import { File as FileIcon, Upload as UploadIcon } from "lucide-react";
+
 import Header from '../../components/ui/Header';
 
 const FileUpload: React.FC = () => {
@@ -32,7 +35,7 @@ const FileUpload: React.FC = () => {
       if (!user) return;
 
       const { data, error } = await supabase
-        .from('DatosNube')
+        .from('archivos')
         .select('*')
         .eq('owner_id', user.id)
         .order('created_at', { ascending: false });
@@ -88,7 +91,7 @@ const FileUpload: React.FC = () => {
 
         // Save metadata to DatosNube table
         const { data: metadata, error: dbError } = await supabase
-          .from('DatosNube')
+          .from('archivos')
           .insert({
             nombre: uploadedFile.file.name,
             path: filePath,
@@ -183,7 +186,8 @@ const FileUpload: React.FC = () => {
         {/* My Files Section */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center gap-3 mb-6">
-            <Folder className="w-6 h-6 text-blue-600" />
+            <FileIcon className="w-6 h-6 text-blue-600" />
+
             <h2 className="text-2xl font-bold text-gray-900">Mis Archivos</h2>
             <span className="ml-auto text-sm text-gray-500">
               {myFiles.length} archivo{myFiles.length !== 1 ? 's' : ''}
@@ -191,10 +195,14 @@ const FileUpload: React.FC = () => {
           </div>
 
           {myFiles.length === 0 ? (
-            <div className="text-center py-12">
-              <Folder className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No tienes archivos subidos aún</p>
-            </div>
+            <div className="mt-10 bg-white rounded-xl p-6 border">
+  <div className="flex items-center justify-between mb-4">
+    <h2 className="text-xl font-semibold">Mis Archivos</h2>
+  </div>
+
+  <FileList />
+</div>
+
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {myFiles.map((file) => (
@@ -205,7 +213,8 @@ const FileUpload: React.FC = () => {
                 >
                   <div className="flex items-start gap-3">
                     <div className="p-2 bg-blue-100 rounded">
-                      <Folder className="w-5 h-5 text-blue-600" />
+                      <FileIcon className="w-6 h-6 text-blue-600" />
+
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 truncate">

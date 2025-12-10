@@ -1,3 +1,5 @@
+console.log("⚡ FILEUPLOAD RENDERIZANDO");
+
 import React, { useCallback, useState } from 'react';
 import { Upload, File } from 'lucide-react';
 
@@ -39,6 +41,8 @@ const FileUploadZone: React.FC<FileUploadZoneProps> = ({ onFilesSelected, disabl
     }
   }, [onFilesSelected]);
 
+
+  
   return (
     <div
       onDragOver={handleDragOver}
