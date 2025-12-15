@@ -13,6 +13,7 @@ import type { FileMetadata } from "../types";
 interface FileListProps {
   files: FileMetadata[];
   onDownload: (filePath: string, nombre: string) => void;
+  onDelete: (file: FileMetadata) => void; 
 }
 
 const getFileTypeIcon = (ext: string) => {
@@ -31,7 +32,7 @@ const getFileTypeIcon = (ext: string) => {
   return <File className="w-8 h-8 text-gray-600" />;
 };
 
-const FileList: React.FC<FileListProps> = ({ files, onDownload }) => {
+const FileList: React.FC<FileListProps> = ({ files, onDownload, onDelete }) => {
   const [previews, setPreviews] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -80,13 +81,38 @@ const FileList: React.FC<FileListProps> = ({ files, onDownload }) => {
               onDownload(file.path, file.nombre);
             }}
           >
-            <div className="flex items-center gap-3">
-              {/* Preview o icono */}
-              {previewUrl ? (
-                <img
-                  src={previewUrl}
-                  alt={file.nombre}
-                  className="w-16 h-16 object-cover rounded"
+            <div className="flex justify-between items-center mt-3">
+  <button
+  onClick={(e) => {
+    e.stopPropagation();
+    onDownload(file.path, file.nombre);
+  }}
+  className="text-sm text-blue-600 hover:underline"
+>
+  Descargar
+</button>
+
+
+  <button
+  className="text-red-600 hover:text-red-800"
+  onClick={(e) => {
+    e.stopPropagation();          // 🔥 CLAVE
+    onDelete(file);
+  }}
+>
+  eliminar
+</button>
+
+
+</div>
+
+   <div className="flex items-center gap-3">
+      {/* Preview o icono */}
+        {previewUrl ? (
+            <img
+              src={previewUrl}
+              alt={file.nombre}
+              className="w-16 h-16 object-cover rounded"
                 />
               ) : (
                 <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">

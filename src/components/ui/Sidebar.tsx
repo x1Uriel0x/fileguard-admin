@@ -5,9 +5,11 @@ import Button from './Button';
 
 interface SidebarProps {
   isCollapsed?: boolean;
-  isOpen?: boolean; // usado para móvil
+  isOpen?: boolean;
   onClose?: () => void;
+  isAdmin: boolean; // 👈 NUEVO
 }
+
 
 interface NavigationItem {
   label: string;
@@ -20,8 +22,10 @@ interface NavigationItem {
 const Sidebar = ({
   isCollapsed = false,
   isOpen = false,
-  onClose
+  onClose,
+  isAdmin,
 }: SidebarProps) => {
+
   const location = useLocation();
   const navigate = useNavigate();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);

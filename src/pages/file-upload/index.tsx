@@ -32,62 +32,97 @@ const FileUpload: React.FC = () => {
 }, []);
 
 useEffect(() => {
-  if (userId) {
-    loadFolders();
-    loadMyFiles();
-  }
-}, [userId, currentFolder]);
+  if (!userId || !role) return;
+
+  /* loadUsers(); */      // admin → todos
+  loadFolders();    // admin → todo
+  loadMyFiles();
+}, [userId, role, currentFolder]);
 
   const init = async () => {
-    await checkUser();
+    await checkUser();      
     await loadFolders();
     await loadMyFiles();
-  };
+  };  
 
   // Obtener usuario
-  const checkUser = async () => {
+ const checkUser = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  setUserId(user.id);
-  loadUserRole(user.id);
-  await loadUserRole(user.id);
-
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single();
 
-  if (profile) {
-    setRole(profile.role);
-  }
+  if (error || !profile) return;
+
+  setUserId(user.id);
+  setRole(profile.role);
+
+  console.log("checkUser → userId:", user?.id);
+console.log("checkUser → role:", profile?.role);
+
 };
 
-
   // ⬇ Cargar carpetas dentro de currentFolder
-  const   loadFolders = async () => {
-  if (!userId) return;
+ const loadFolders = async () => {
+  if (!userId || !role) return; // ⬅️ CLAVE
 
   let query = supabase.from("folders").select("*");
 
   if (role !== "admin") {
     query = query.eq("owner_id", userId);
-  }
 
-  if (currentFolder) {
-    query = query.eq("parent_id", currentFolder);
+    if (currentFolder) {
+      query = query.eq("parent_id", currentFolder);
+    } else {
+      query = query.is("parent_id", null);
+    }
   } else {
-    query = query.is("parent_id", null);
+    if (currentFolder) {
+      query = query.eq("parent_id", currentFolder);
+    }
   }
 
   const { data, error } = await query;
 
-  if (!error) setFolders(data || []);
+  if (!error) setFolders(data ?? []);
 };
 
 
 
+const deleteFile = async (file: FileMetadata) => {
+  if (!confirm(`¿Eliminar "${file.nombre}"?`)) return;
+
+  // 1️⃣ borrar del storage
+  const { error: storageError } = await supabase.storage
+    .from("mis_archivos")
+    .remove([file.path]);
+
+  console.log("STORAGE ERROR:", storageError);
+
+  if (storageError) {
+    alert("Error en storage");
+    return;
+  }
+
+  // 2️⃣ borrar de la BD
+  const { error: dbError } = await supabase
+    .from("archivos")
+    .delete()
+    .eq("id", file.id);
+
+  console.log("DB ERROR:", dbError);
+
+  if (dbError) {
+    alert(dbError.message);
+    return;
+  }
+
+  await loadMyFiles();
+};
 
   // ⬇ Cargar archivos dentro de currentFolder
   const loadMyFiles = async () => {
@@ -124,7 +159,7 @@ const loadUserRole = async (uid: string) => {
   const { data, error } = await supabase
     .from("profiles")
     .select("role")
-    .eq("id", uid)
+    .eq("id", uid)  
     .single();
 
   if (!error && data) {
@@ -228,32 +263,72 @@ console.log(" Archivo guardado en BD:", metadata);
 };
 
 const deleteFolder = async (folderId: string) => {
-  if (!confirm("¿Desea eliminar esta carpeta y todos sus archivos?")) return;
+  if (!confirm("¿Eliminar carpeta y todo su contenido?")) return;
 
-  // 1. Traer archivos dentro de esta carpeta
-  const { data: files } = await supabase
+  // 1️⃣ Obtener archivos dentro de la carpeta
+  const { data: files, error: filesError } = await supabase
     .from("archivos")
-    .select("path")
+    .select("id, path")
     .eq("folder_id", folderId);
 
-  // 2. Eliminar archivos del bucket Storage
-  if (files && files.length > 0) {
-    const filePaths = files.map((f) => f.path);
-    await supabase.storage.from("mis_archivos").remove(filePaths);
+  if (filesError) {
+    alert("Error obteniendo archivos");
+    return;
   }
 
-  // 3. Eliminar carpeta (y subcarpetas si usás cascada)
-  const { error } = await supabase
+  // 2️⃣ Borrar archivos del storage
+  if (files && files.length > 0) {
+    const paths = files.map(f => f.path);
+
+    const { error: storageError } = await supabase.storage
+      .from("mis_archivos")
+      .remove(paths);
+
+    if (storageError) {
+      alert("Error borrando archivos del storage");
+      return;
+    }
+
+    // 3️⃣ Borrar archivos de la BD
+    const { error: dbFilesError } = await supabase
+      .from("archivos")
+      .delete()
+      .eq("folder_id", folderId);
+
+    if (dbFilesError) {
+      alert("Error borrando archivos de la base");
+      return;
+    }
+  }
+
+  // 4️⃣ Borrar carpeta
+  const { error: folderError } = await supabase
     .from("folders")
     .delete()
     .eq("id", folderId);
 
-  if (error) {
-    alert("Error eliminando carpeta");
+  if (folderError) {
+    alert("Error borrando carpeta");
     return;
   }
 
-  // 4. Recargar carpetas
+  // 5️⃣ Refrescar UI
+  await loadFolders();
+  await loadMyFiles();
+};
+
+
+
+
+const confirmDeleteFolder = async (folderId: string) => {
+  const ok = window.confirm(
+    "⚠️ Esta carpeta contiene archivos y subcarpetas.\n" +
+    "¿Seguro que deseas eliminarla junto con todo su contenido?"
+  );
+
+  if (!ok) return;
+
+  await deleteFolder(folderId);
   await loadFolders();
 };
 
@@ -323,10 +398,11 @@ const deleteFolder = async (folderId: string) => {
         </div>
 
         {/* Lista de archivos */}
-        <FileList files={myFiles} onDownload={downloadFile} />
+        <FileList files={myFiles} onDownload={downloadFile} onDelete={deleteFile} />
       </div>
     </div>
   );
 };
 
 export default FileUpload;
+

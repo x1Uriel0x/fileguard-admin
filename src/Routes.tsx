@@ -3,17 +3,15 @@ import { BrowserRouter, Routes as RouterRoutes, Route } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
 import NotFound from "./pages/NotFound";
 
-import AdminDashboard from './pages/admin-dashboard';
-import Login from './pages/login';
-import PermissionManagement from './pages/permission-management';
-import Register from './pages/register';
-import FileUpload from './pages/file-upload';
-
-import AuthRoleGuard from "./components/ui/AuthRoleGuard"; 
-
+import AdminDashboard from "./pages/admin-dashboard";
+import Login from "./pages/login";
+import PermissionManagement from "./pages/permission-management";
+import Register from "./pages/register";
+import FileUpload from "./pages/file-upload";
 import ProfilePage from "./pages/profile";
 import SettingsPage from "./pages/settings";
 
+import AuthRoleGuard from "./components/ui/AuthRoleGuard";
 
 const Routes: React.FC = () => {
   return (
@@ -21,63 +19,60 @@ const Routes: React.FC = () => {
       <ScrollToTop />
       <RouterRoutes>
 
-        {/* 🔵 LOGIN Y REGISTRO (PÚBLICOS) */}
+        {/* 🔵 PÚBLICOS */}
+        <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* 🟣 PÁGINA PRINCIPAL → LOGIN */}
-        <Route path="/" element={<Login />} />
-
         {/* 👑 SOLO ADMIN */}
-        <Route 
-          path="/admin-dashboard" 
+        <Route
+          path="/admin-dashboard"
           element={
-            <AuthRoleGuard allowedRoles={["Administrador", "admin"]}>
+            <AuthRoleGuard allowedRoles={["admin"]}>
               <AdminDashboard />
             </AuthRoleGuard>
-          } 
+          }
         />
 
-        <Route 
-          path="/permission-management" 
+        <Route
+          path="/permission-management"
           element={
-            <AuthRoleGuard allowedRoles={["Administrador", "admin"]}>
+            <AuthRoleGuard allowedRoles={["admin"]}>
               <PermissionManagement />
             </AuthRoleGuard>
-          } 
+          }
         />
 
-        {/* 🟢 TODOS LOS USUARIOS AUTENTICADOS */}
-        <Route 
-          path="/file-upload" 
+        {/* 🟢 USUARIOS Y ADMIN */}
+        <Route
+          path="/file-upload"
           element={
-            <AuthRoleGuard allowedRoles={["Administrador", "admin", "Usuario", "Invitado"]}>
+            <AuthRoleGuard allowedRoles={["admin", "user"]}>
               <FileUpload />
             </AuthRoleGuard>
           }
         />
 
-        {/* ❌ 404 */}
-        <Route path="*" element={<NotFound />} />
-        
-          <Route 
-        path="/profile" 
-        element={
-          <AuthRoleGuard allowedRoles={["admin", "user"]}>
-            <ProfilePage />
-          </AuthRoleGuard>
-  }
-/>
+        <Route
+          path="/profile"
+          element={
+            <AuthRoleGuard allowedRoles={["admin", "user"]}>
+              <ProfilePage />
+            </AuthRoleGuard>
+          }
+        />
 
-<Route 
-  path="/settings" 
-  element={
-    <AuthRoleGuard allowedRoles={["admin", "user"]}>
-      <SettingsPage />
-    </AuthRoleGuard>
-  }
-/>
-          
+        <Route
+          path="/settings"
+          element={
+            <AuthRoleGuard allowedRoles={["admin", "user"]}>
+              <SettingsPage />
+            </AuthRoleGuard>
+          }
+        />
+
+        {/* ❌ 404 — SIEMPRE AL FINAL */}
+        <Route path="*" element={<NotFound />} />
 
       </RouterRoutes>
     </BrowserRouter>

@@ -46,14 +46,15 @@ export interface PermissionTemplate {
 export interface PermissionHistory {
   id: string;
   userId: string;
-  userName: string;
+  userName: string;        
   action: 'granted' | 'revoked' | 'modified';
-  categoryName: string;
-  accessLevel: string;
+  categoryName: string;    
+  accessLevel: string;     
   timestamp: Date;
   modifiedBy: string;
-  modifiedByName: string;
+  modifiedByName: string;  
 }
+
 
 export interface BulkPermissionUpdate {
   userIds: string[];

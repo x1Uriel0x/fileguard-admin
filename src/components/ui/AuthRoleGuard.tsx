@@ -4,56 +4,54 @@ import { supabase } from "../../lib/supabase";
 
 interface AuthRoleGuardProps {
   children: React.ReactNode;
-  allowedRoles?: string[];
+  allowedRoles: ("admin" | "user")[];
 }
 
-export default function AuthRoleGuard({ children, allowedRoles = [] }: AuthRoleGuardProps) {
+export default function AuthRoleGuard({
+  children,
+  allowedRoles,
+}: AuthRoleGuardProps) {
   const location = useLocation();
-
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<any>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    const loadUser = async () => {
-      const { data } = await supabase.auth.getSession();
-      const currentSession = data.session || null;
-      setSession(currentSession);
+    const checkAccess = async () => {
+      // 1️⃣ Sesión
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (currentSession?.user?.id) {
-        // 🔥 Cargar el rol REAL desde profiles
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", currentSession.user.id)
-          .single();
+      if (!session) {
+        setAuthorized(false);
+        setLoading(false);
+        return;
+      }
 
-        setRole(profile?.role || "user");
+      // 2️⃣ Rol real desde profiles
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+
+      if (error || !profile) {
+        setAuthorized(false);
+      } else {
+        setAuthorized(allowedRoles.includes(profile.role));
       }
 
       setLoading(false);
     };
 
-    loadUser();
-  }, []);
+    checkAccess();
+  }, [allowedRoles]);
 
-  if (loading) return <p>Cargando...</p>;
+  if (loading) return null;
 
-  // ❌ No autenticado
-  if (!session) {
+  if (!authorized) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
-  // 🔥 Usar el rol REAL desde la DB
-  const finalRole = role ?? "user";
-
-  //  No tiene permiso
-  if (allowedRoles.length > 0 && !allowedRoles.includes(finalRole)) {
-    if (location.pathname !== "/file-upload") {
-      return <Navigate to="/file-upload" replace />;
-    }
-  }
-
-  // ✔ Autenticado y permitido
   return <>{children}</>;
 }

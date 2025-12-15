@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import Header from "../../components/ui/Header";
 import Sidebar from "../../components/ui/Sidebar";
 import NavigationBreadcrumb from "../../components/ui/NavigationBreadcrumb";
@@ -12,15 +14,51 @@ import { supabase } from "../../lib/supabase";
 import type { User } from "./types";
 
 const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Load REAL users from Supabase -> profiles table
   useEffect(() => {
-    const fetchProfiles = async () => {
+    const fetchUsers = async () => {
       setLoadingUsers(true);
 
+      // 1️⃣ Usuario autenticado
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      // ❌ No hay sesión → login
+      if (!user) {
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      // 2️⃣ Perfil REAL desde profiles
+      const { data: myProfile, error: roleError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (roleError || !myProfile) {
+        console.error("Error loading role:", roleError);
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      const admin = myProfile.role === "admin";
+      setIsAdmin(admin);
+
+      // ⛔ SI NO ES ADMIN → FUERA DEL DASHBOARD
+      if (!admin) {
+        navigate("/file-upload", { replace: true });
+        return;
+      }
+
+      // 3️⃣ Admin → puede ver todos los perfiles
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -32,19 +70,20 @@ const AdminDashboard: React.FC = () => {
         return;
       }
 
-      const formatted: User[] = data.map((p) => ({
+      // 4️⃣ Formatear datos
+      const formatted: User[] = (data || []).map((p) => ({
         id: p.id,
         name: p.name || "Sin nombre",
         email: p.email,
-        role: (p.role as "admin" | "user" | "guest") || "user",
+        role: p.role,
         avatar:
           p.avatar_url ||
           `https://ui-avatars.com/api/?name=${encodeURIComponent(
             p.name || "User"
           )}`,
-        alt: p.name,
+        alt: p.name || "User",
         status: "active",
-        lastActivity: new Date(),
+        lastActivity: new Date(p.created_at),
         permissions: [],
         filesAccessed: 0,
         joinedDate: new Date(p.created_at),
@@ -54,33 +93,28 @@ const AdminDashboard: React.FC = () => {
       setLoadingUsers(false);
     };
 
-    fetchProfiles();
-  }, []);
+    fetchUsers();
+  }, [navigate]);
 
   const totalUsuarios = users.length;
   const sesionesActivas = users.filter((u) => u.status === "active").length;
 
-  const operacionesArchivos = 0;
-  const solicitudesPendientes = 0;
-
   const breadcrumbItems = [
-    { label: "Inicio", path: "/admin-dashboard" },
+    { label: "Inicio", path: "/file-upload" },
     { label: "Panel de Control", path: "/admin-dashboard" },
   ];
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar isCollapsed={isSidebarCollapsed} />
+      <Sidebar isCollapsed={isSidebarCollapsed} isAdmin={isAdmin} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
           onMenuToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          showMenuButton={true}
+          showMenuButton
         />
 
         <main className="flex-1 overflow-y-auto p-6 md:p-10">
-
-          {/* FIXED: NavigationBreadcrumb uses customItems */}
           <NavigationBreadcrumb customItems={breadcrumbItems} />
 
           <h1 className="text-3xl font-bold mt-6">Panel de Control</h1>
@@ -88,7 +122,7 @@ const AdminDashboard: React.FC = () => {
             Gestión completa del sistema FileGuard
           </p>
 
-          {/* METRICS CARDS */}
+          {/* METRICS */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
             <MetricsCard
               metric={{
@@ -115,58 +149,32 @@ const AdminDashboard: React.FC = () => {
                 color: "#16A34A",
               }}
             />
-
-            <MetricsCard
-              metric={{
-                id: "file-ops",
-                title: "Operaciones de Archivos",
-                value: operacionesArchivos,
-                change: 0,
-                changeType: "increase",
-                icon: "Folder",
-                description: "Acciones del sistema",
-                color: "#2563EB",
-              }}
-            />
-
-            <MetricsCard
-              metric={{
-                id: "pending-requests",
-                title: "Solicitudes Pendientes",
-                value: solicitudesPendientes,
-                change: 0,
-                changeType: "increase",
-                icon: "AlertCircle",
-                description: "Solicitudes recientes",
-                color: "#DC2626",
-              }}
-            />
           </div>
 
-          {/* TABLE: Users */}
+          {/* USERS TABLE */}
           <div className="mt-10">
             <UserManagementTable
               users={users}
               loading={loadingUsers}
               onEditUser={(id) => console.log("Editar usuario:", id)}
-              onViewPermissions={(id) => console.log("Ver permisos del usuario:", id)}
+              onViewPermissions={(id) =>
+                console.log("Ver permisos del usuario:", id)
+              }
             />
           </div>
 
-          {/* FIXED: PendingRequests uses pendingItems */}
+          {/* REQUESTS */}
           <div className="mt-10">
-            <PendingRequests 
-          requests={[]} 
-          onApprove={(id) => console.log("Aprobado:", id)} 
-          onReject={(id) => console.log("Rechazado:", id)}  
-          />
-
+            <PendingRequests
+              requests={[]}
+              onApprove={(id) => console.log("Aprobado:", id)}
+              onReject={(id) => console.log("Rechazado:", id)}
+            />
           </div>
 
-          {/* FIXED: SystemActivity uses activity */}
+          {/* ACTIVITY */}
           <div className="mt-10">
             <SystemActivity activities={[]} />
-
           </div>
         </main>
       </div>
