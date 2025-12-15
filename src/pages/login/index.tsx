@@ -11,7 +11,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<LoginFormErrors>({});
-  const [isLocked, setIsLocked] = useState(false);
+  const [isLocked] = useState(false);
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -25,7 +25,7 @@ const Login = () => {
   const handleLogin = async (formData: LoginFormData) => {
     if (isLocked) {
       setErrors({
-        general: 'Cuenta bloqueada temporalmente. Por favor, intente más tarde.'
+        general: 'Cuenta bloqueada temporalmente. Por favor, intente más tarde.',
       });
       return;
     }
@@ -55,13 +55,13 @@ const Login = () => {
         return;
       }
 
-      // 🚀 LOGIN REAL CON SUPABASE
-      const { error } = await supabase.auth.signInWithPassword({
+      // 🚀 LOGIN CON SUPABASE
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
 
-      if (error) {
+      if (error || !data.session) {
         setErrors({
           general: 'Credenciales incorrectas. Por favor, intente nuevamente.',
         });
@@ -69,16 +69,34 @@ const Login = () => {
         return;
       }
 
-      // ☑️ Guardar estado si seleccionó "Recordarme"
+      // ☑️ Recordarme
       if (formData.rememberMe) {
-        localStorage.setItem("fileGuard_email", formData.email);
-        localStorage.setItem("fileGuard_rememberMe", "true");
+        localStorage.setItem('fileGuard_email', formData.email);
+        localStorage.setItem('fileGuard_rememberMe', 'true');
       }
 
-      localStorage.setItem("fileGuard_isAuthenticated", "true");
+      localStorage.setItem('fileGuard_isAuthenticated', 'true');
 
-      // ⭐ Redirección al dashboard
-      navigate('/admin-dashboard', { replace: true });
+      // 🔥 OBTENER ROL REAL DESDE PROFILES
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.session.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        setErrors({
+          general: 'No se pudo obtener el rol del usuario',
+        });
+        return;
+      }
+
+      // ✅ REDIRECCIÓN SEGÚN ROL
+      if (profile.role === 'admin') {
+        navigate('/admin-dashboard', { replace: true });
+      } else {
+        navigate('/file-upload', { replace: true });
+      }
 
     } catch (error) {
       setErrors({
@@ -93,31 +111,31 @@ const Login = () => {
     <>
       <Helmet>
         <title>Iniciar Sesión - FileGuard Admin</title>
-        <meta 
-          name="description" 
-          content="Acceda al sistema de gestión de archivos FileGuard con autenticación segura y control basado en roles" 
+        <meta
+          name="description"
+          content="Acceda al sistema de gestión de archivos FileGuard con autenticación segura y control basado en roles"
         />
       </Helmet>
 
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
-            
-            {/* Parte Izquierda */}
+
+            {/* Izquierda */}
             <div className="flex flex-col justify-center space-y-8">
               <div className="hidden lg:block">
                 <SecurityFeatures />
               </div>
             </div>
 
-            {/* Parte Derecha - Login */}
+            {/* Derecha */}
             <div className="flex items-center justify-center">
               <div className="w-full max-w-md">
                 <div className="bg-card border border-border rounded-2xl shadow-xl p-8 space-y-8">
-                  
+
                   <LoginHeader />
-                  
-                  <LoginForm 
+
+                  <LoginForm
                     onSubmit={handleLogin}
                     isLoading={isLoading}
                     errors={errors}

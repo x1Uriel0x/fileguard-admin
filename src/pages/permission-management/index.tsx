@@ -27,6 +27,7 @@ const PermissionManagement: React.FC = () => {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  
   // real data states
   const [users, setUsers] = useState<User[]>([]);
   const [categories, setCategories] = useState<FileCategory[]>([]);
@@ -175,42 +176,40 @@ const PermissionManagement: React.FC = () => {
 
   // Load permissions for selected user (folder_permissions table)
   const loadUserPermissions = async (userId: string) => {
-    // load all folder_permissions for this user
-    const { data, error } = await supabase
-      .from("folder_permissions")
-      .select("*")
-      .eq("user_id", userId);
+  const { data, error } = await supabase
+    .from("folder_permissions")
+    .select("*")
+    .eq("user_id", userId);
 
-    if (error) {
-      console.error("Error cargando folder_permissions:", error);
-      // clear current user's permissions
-      setPermissions((prev) => prev.filter((p) => p.userId !== userId));
-      return;
-    }
+  if (error) {
+    console.error("Error loading permissions:", error);
+    return;
+  }
 
-    // map to Permission type and merge into permissions state while preserving other users' permissions
-    const userPerms: Permission[] = (data || []).map((r: any) => ({
-      userId: r.user_id,
-      categoryId: r.folder_id,
-      access: {
-        view: !!r.can_view,
-        edit: !!r.can_edit,
-        upload: !!r.can_upload,
-        delete: !!r.can_delete
-      },
-      inherited: false,
-      customized: true,
-      lastModified: r.updated_at ? new Date(r.updated_at) : new Date(r.created_at),
-      modifiedBy: r.updated_by ?? "system",
-      id: r.id
-    }));
+  const userPermissions: Permission[] = (data || []).map((p) => ({
+    userId,
+    categoryId: p.folder_id,
+    access: {
+      view: !!p.can_view,
+      edit: !!p.can_edit,
+      upload: !!p.can_upload,
+      delete: !!p.can_delete,
+    },
+    inherited: false,
+    customized: true,
+    lastModified: new Date(p.updated_at || p.created_at),
+    modifiedBy: p.updated_by || "admin",
+  }));
 
-    // remove existing perms for this user and add loaded ones
-    setPermissions((prev) => {
-      const filtered = prev.filter((p) => p.userId !== userId);
-      return [...filtered, ...userPerms];
-    });
-  };
+  // 🔥 CLAVE: mantener permisos de otros usuarios
+  setPermissions((prev) => {
+    const filtered = prev.filter((perm) => perm.userId !== userId);
+    return [...filtered, ...userPermissions];
+  });
+};
+
+
+
 
   // whenever selectedUser changes, load permissions for them
   useEffect(() => {

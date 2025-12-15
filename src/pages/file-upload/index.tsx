@@ -9,7 +9,7 @@ import FileList from './components/FileList';
 import type { UploadedFile, FileMetadata } from "./types";
 import type { Folder } from "./types";
 
-import { File as FileIcon, Upload as UploadIcon, Folder as FolderIcon } from "lucide-react";
+import { Upload as UploadIcon, Folder as FolderIcon } from "lucide-react";
 import Header from '../../components/ui/Header';
 
 
@@ -67,29 +67,65 @@ console.log("checkUser → role:", profile?.role);
 };
 
   // ⬇ Cargar carpetas dentro de currentFolder
- const loadFolders = async () => {
-  if (!userId || !role) return; // ⬅️ CLAVE
+const loadFolders = async () => {
+  if (!userId || !role) return;
 
-  let query = supabase.from("folders").select("*");
-
-  if (role !== "admin") {
-    query = query.eq("owner_id", userId);
+  // 👑 ADMIN → ve todas
+  if (role === "admin") {
+    let query = supabase.from("folders").select("*");
 
     if (currentFolder) {
       query = query.eq("parent_id", currentFolder);
     } else {
       query = query.is("parent_id", null);
     }
-  } else {
-    if (currentFolder) {
-      query = query.eq("parent_id", currentFolder);
-    }
+
+    const { data, error } = await query;
+    if (!error) setFolders(data ?? []);
+    return;
   }
 
-  const { data, error } = await query;
+  // 👤 USUARIO NORMAL
+  // 1️⃣ Carpetas propias
+  let ownQuery = supabase
+    .from("folders")
+    .select("*")
+    .eq("owner_id", userId);
 
-  if (!error) setFolders(data ?? []);
+  if (currentFolder) {
+    ownQuery = ownQuery.eq("parent_id", currentFolder);
+  } else {
+    ownQuery = ownQuery.is("parent_id", null);
+  }
+
+  const { data: ownFolders } = await ownQuery;
+
+  // 2️⃣ Carpetas compartidas
+  let sharedQuery = supabase
+    .from("folder_permissions")
+    .select("folders(*)")
+    .eq("user_id", userId)
+    .eq("can_view", true);
+
+  if (currentFolder) {
+    sharedQuery = sharedQuery.eq("folders.parent_id", currentFolder);
+  } else {
+    sharedQuery = sharedQuery.is("folders.parent_id", null);
+  }
+
+  const { data: sharedData } = await sharedQuery;
+  const sharedFolders = sharedData?.map((r: any) => r.folders) ?? [];
+
+  // 3️⃣ Unir y evitar duplicados
+  const allFolders = [...(ownFolders ?? []), ...sharedFolders];
+  const unique = Array.from(
+    new Map(allFolders.map(f => [f.id, f])).values()
+  );
+
+  setFolders(unique);
 };
+
+
 
 
 
