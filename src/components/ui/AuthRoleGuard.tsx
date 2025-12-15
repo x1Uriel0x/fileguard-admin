@@ -12,11 +12,25 @@ export default function AuthRoleGuard({ children, allowedRoles = [] }: AuthRoleG
 
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await supabase.auth.getSession();
-      setSession(data.session || null);
+      const currentSession = data.session || null;
+      setSession(currentSession);
+
+      if (currentSession?.user?.id) {
+        // 🔥 Cargar el rol REAL desde profiles
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", currentSession.user.id)
+          .single();
+
+        setRole(profile?.role || "user");
+      }
+
       setLoading(false);
     };
 
@@ -25,26 +39,21 @@ export default function AuthRoleGuard({ children, allowedRoles = [] }: AuthRoleG
 
   if (loading) return <p>Cargando...</p>;
 
-  // ❌ No autenticado → enviar a login
+  // ❌ No autenticado
   if (!session) {
-    return (
-      <Navigate
-        to="/login"
-        state={{ from: location.pathname }}
-        replace
-      />
-    );
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
-  const role = session.user.user_metadata?.role;
+  // 🔥 Usar el rol REAL desde la DB
+  const finalRole = role ?? "user";
 
-  //  Usuario sin permiso → solo redirigimos si NO está en file-upload
-  if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
+  //  No tiene permiso
+  if (allowedRoles.length > 0 && !allowedRoles.includes(finalRole)) {
     if (location.pathname !== "/file-upload") {
       return <Navigate to="/file-upload" replace />;
     }
   }
 
-  // ✔ Autenticado y con permiso
+  // ✔ Autenticado y permitido
   return <>{children}</>;
 }

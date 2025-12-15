@@ -167,17 +167,13 @@ const Register = () => {
 
     setIsLoading(true);
 
-    try {
+    setIsLoading(true);
+
+try {
+  // 1️⃣ Crear usuario en Auth
   const { data, error } = await supabase.auth.signUp({
     email: formData.email,
     password: formData.password,
-    options: {
-      data: {
-        name: formData.name,
-        department: formData.department,
-        role: formData.role,
-      },
-    },
   });
 
   if (error) {
@@ -186,15 +182,33 @@ const Register = () => {
     return;
   }
 
-  setRegistrationComplete(true);
-    } catch (error) {
-      console.error('Registration error:', error);
-      setErrors({
-        email: 'Error al crear la cuenta. Por favor, intente nuevamente.',
-      });
-    } finally {
-      setIsLoading(false);
+  const user = data.user;
+  console.log("Nuevo usuario:", user);
+
+  // 2️⃣ Insertar registro en la tabla PROFILES
+  if (user) {
+    const { error: profileError } = await supabase.from("profiles").insert({
+      id: user.id,               // ← IMPORTANTE
+      email: formData.email,
+      name: formData.name,
+      role: "user",              // ← Todos los registros empiezan como user
+      avatar_url: null,
+    });
+
+    if (profileError) {
+      console.error("Error creando profile:", profileError);
     }
+  }
+  setRegistrationComplete(true);
+
+} catch (error) {
+  console.error("Registration error:", error);
+  setErrors({
+    email: "Error al crear la cuenta. Por favor, intente nuevamente.",
+  });
+} finally {
+  setIsLoading(false);
+}
   };
 
   const handleInputChange = (field: keyof RegisterFormData, value: string | boolean) => {

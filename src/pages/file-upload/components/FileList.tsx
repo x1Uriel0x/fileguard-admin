@@ -1,124 +1,116 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import {
+  FileImage,
+  FileText,
+  FileArchive,
+  FileVideo,
+  File,
+  AlertTriangle
+} from "lucide-react";
 import { supabase } from "../../../lib/supabase";
+import type { FileMetadata } from "../types";
 
-interface ArchivoConUrl {
-  id: string;
-  nombre: string;
-  path: string;
-  owner_id: string;
-  url?: string;
+interface FileListProps {
+  files: FileMetadata[];
+  onDownload: (filePath: string, nombre: string) => void;
 }
 
-export default function FileList() {
-  const [archivos, setArchivos] = useState<ArchivoConUrl[]>([]);
-  const [loading, setLoading] = useState(true);
+const getFileTypeIcon = (ext: string) => {
+  if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext))
+    return <FileImage className="w-8 h-8 text-blue-600" />;
 
-  const fetchArchivos = async () => {
-    setLoading(true);
+  if (["pdf"].includes(ext))
+    return <FileText className="w-8 h-8 text-red-600" />;
 
-    // Obtener usuario actual
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  if (["zip", "rar", "7z"].includes(ext))
+    return <FileArchive className="w-8 h-8 text-yellow-600" />;
 
-    if (!user) return;
+  if (["mp4", "mov", "webm"].includes(ext))
+    return <FileVideo className="w-8 h-8 text-purple-600" />;
 
-    // Obtener registros de la tabla archivos
-    const { data, error } = await supabase
-      .from("archivos")
-      .select("*")
-      .eq("owner_id", user.id);
+  return <File className="w-8 h-8 text-gray-600" />;
+};
 
-    if (error) {
-      console.error("Error al cargar archivos:", error.message);
-      setLoading(false);
-      return;
-    }
-
-    // Generar URLs firmadas para cada archivo
-    const archivosConUrl = await Promise.all(
-      data.map(async (file) => {
-        const { data: signed } = await supabase.storage
-          .from("mis_archivos")
-          .createSignedUrl(file.path, 3600); // 1 hora
-
-        return {
-          ...file,
-          url: signed?.signedUrl,
-        };
-      })
-    );
-
-    setArchivos(archivosConUrl);
-    setLoading(false);
-  };
-
-  const eliminarArchivo = async (file: ArchivoConUrl) => {
-    const confirmar = confirm(
-      `¿Eliminar archivo "${file.nombre}" permanentemente?`
-    );
-
-    if (!confirmar) return;
-
-    // 1. eliminar de storage
-    await supabase.storage.from("mis_archivos").remove([file.path]);
-
-    // 2. eliminar de la tabla
-    await supabase.from("archivos").delete().eq("id", file.id);
-
-    // 3. refrescar lista
-    fetchArchivos();
-  };
+const FileList: React.FC<FileListProps> = ({ files, onDownload }) => {
+  const [previews, setPreviews] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    fetchArchivos();
-  }, []);
+    const loadPreviews = async () => {
+      const newPreviews: Record<string, string> = {};
 
-  if (loading) {
-    return <p className="text-muted-foreground">Cargando archivos...</p>;
-  }
+      for (const file of files) {
+        if (!file.path) continue; // evita error
 
-  if (archivos.length === 0) {
-    return <p className="text-muted-foreground">Aún no has subido archivos.</p>;
-  }
+        const ext = file.nombre.split(".").pop()?.toLowerCase() || "";
+
+        if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) {
+          const { data, error } = await supabase.storage
+            .from("mis_archivos")
+            .createSignedUrl(file.path, 3600);
+
+          if (data?.signedUrl) newPreviews[file.id] = data.signedUrl;
+          if (error) console.warn("Error cargando preview:", error);
+        }
+      }
+
+      setPreviews(newPreviews);
+    };
+
+    loadPreviews();
+  }, [files]);
+
+  if (!files || files.length === 0)
+    return <p className="text-muted-foreground mt-4">No hay archivos en esta carpeta.</p>;
 
   return (
-    <div className="mt-10">
-      <h2 className="text-xl font-bold mb-4">Mis archivos</h2>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+      {files.map((file) => {
+        const ext = file.nombre.split(".").pop()?.toLowerCase() || "";
+        const previewUrl = previews[file.id];
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {archivos.map((file: ArchivoConUrl) => (
+        return (
           <div
             key={file.id}
-            className="bg-white border rounded-xl shadow p-3 space-y-3"
+            className="border rounded-lg p-4 bg-white hover:shadow-md cursor-pointer transition"
+            onClick={() => {
+              if (!file.path) {
+                alert("Este archivo tiene un path inválido en la base de datos.");
+                return;
+              }
+              onDownload(file.path, file.nombre);
+            }}
           >
-            <img
-              src={file.url}
-              alt={file.nombre}
-              className="w-full h-32 object-cover rounded"
-            />
+            <div className="flex items-center gap-3">
+              {/* Preview o icono */}
+              {previewUrl ? (
+                <img
+                  src={previewUrl}
+                  alt={file.nombre}
+                  className="w-16 h-16 object-cover rounded"
+                />
+              ) : (
+                <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
+                  {file.path ? getFileTypeIcon(ext) : <AlertTriangle className="text-red-500" />}
+                </div>
+              )}
 
-            <p className="text-sm font-medium truncate">{file.nombre}</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-800 truncate">{file.nombre}</p>
 
-            <div className="flex justify-between text-sm">
-              <a
-                href={file.url}
-                target="_blank"
-                className="text-blue-600 hover:underline"
-              >
-                Descargar
-              </a>
+                <p className="text-xs text-gray-500 mt-1">
+                  {new Date(file.created_at).toLocaleDateString("es-ES")}
+                </p>
 
-              <button
-                onClick={() => eliminarArchivo(file)}
-                className="text-red-500 hover:underline"
-              >
-                Eliminar
-              </button>
+                {!file.path && (
+                  <p className="text-xs text-red-600 mt-1">Path inválido</p>
+                )}
+              </div>
             </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
-}
+};
+
+export default FileList;

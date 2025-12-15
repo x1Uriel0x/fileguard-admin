@@ -14,3 +14,12 @@ export interface UploadedFile {
   error?: string;
   metadata?: FileMetadata;
 }
+
+export interface Folder {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+}
