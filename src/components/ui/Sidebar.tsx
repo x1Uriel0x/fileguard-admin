@@ -73,18 +73,18 @@ const Sidebar = ({
       {/* SIDEBAR */}
       <aside
         className={`
-          fixed lg:static
-          top-1 lg:top-0
+          fixed lg:fixed
+          top-16
           left-0 bottom-0
           bg-card border-r border-border
           transition-all duration-300
-          z-[200]
+          z-40
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
           ${isCollapsed ? "w-16" : "w-64"}
         `}
       >
-        <nav className="flex-1 overflow-y-auto p-6 md:p-10"
-  style={{ paddingTop: "4rem" }}>
+
+        <nav className="flex-1 overflow-y-auto p-6 md:p-10">
           {/* Items */}
           <div className="flex-1 px-3 space-y-1 overflow-y-auto">
             {navigationItems.map((item) => {

@@ -134,42 +134,60 @@ const PermissionManagement: React.FC = () => {
     return;
   }
 
-  const history: PermissionHistory[] = await Promise.all(
-    data.map(async (row: any) => {
-      // Cargar nombre del usuario
-      const { data: user } = await supabase
-        .from("profiles")
-        .select("name")
-        .eq("id", row.userId)
-        .single();
+ const history: PermissionHistory[] = await Promise.all(
+  data.map(async (row: any) => {
+    // Usuario actual
+    const currentUser = (await supabase.auth.getUser()).data.user;
 
-      // Cargar nombre de la carpeta
+    // 1️⃣ Usuario afectado
+    const { data: user } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", row.userId)
+      .single();
+
+    // 2️⃣ Verificar permiso de carpeta
+    const { data: permission } = await supabase
+      .from("folder_permissions")
+      .select("can_view")
+      .eq("folder_id", row.folderId)
+      .eq("user_id", currentUser?.id)
+      .single();
+
+    // 3️⃣ Cargar carpeta SOLO si puede verla
+    let folderName = "Sin acceso";
+
+    if (permission?.can_view) {
       const { data: folder } = await supabase
         .from("folders")
         .select("name")
         .eq("id", row.folderId)
         .single();
 
-      // Cargar nombre de quien modificó
-      const { data: modUser } = await supabase
-        .from("profiles")
-        .select("name")
-        .eq("id", row.changedBy)
-        .single();
+      folderName = folder?.name ?? "Carpeta";
+    }
 
-      return {
-        id: row.id,
-        userId: row.userId,
-        userName: user?.name ?? "Usuario",
-        categoryName: folder?.name ?? "Carpeta",
-        accessLevel: row.accessLevel ?? "read",
-        action: row.action,
-        timestamp: new Date(row.timestamp),
-        modifiedBy: row.changedBy,
-        modifiedByName: modUser?.name ?? "Administrador"
-      };
-    })
-  );
+    // 4️⃣ Usuario que modificó (siempre)
+    const { data: modUser } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", row.changedBy)
+      .single();
+
+    return {
+      id: row.id,
+      userId: row.userId,
+      userName: user?.name ?? "Usuario",
+      categoryName: folderName,
+      accessLevel: row.accessLevel ?? "read",
+      action: row.action,
+      timestamp: new Date(row.timestamp),
+      modifiedBy: row.changedBy,
+      modifiedByName: modUser?.name ?? "Administrador",
+    };
+  })
+);
+
 
   setHistory(history);
 };
@@ -178,7 +196,19 @@ const PermissionManagement: React.FC = () => {
   const loadUserPermissions = async (userId: string) => {
   const { data, error } = await supabase
     .from("folder_permissions")
-    .select("*")
+    .select(`
+      id,
+      folder_id,
+      can_view,
+      can_edit,
+      can_upload,
+      created_at,
+      updated_at,
+      folders (
+        id,
+        name
+      )
+    `)
     .eq("user_id", userId);
 
   if (error) {
@@ -186,20 +216,24 @@ const PermissionManagement: React.FC = () => {
     return;
   }
 
+
   const userPermissions: Permission[] = (data || []).map((p) => ({
-    userId,
-    categoryId: p.folder_id,
-    access: {
-      view: !!p.can_view,
-      edit: !!p.can_edit,
-      upload: !!p.can_upload,
-      delete: !!p.can_delete,
-    },
-    inherited: false,
-    customized: true,
-    lastModified: new Date(p.updated_at || p.created_at),
-    modifiedBy: p.updated_by || "admin",
-  }));
+  id: p.id,
+  userId,
+  categoryId: p.folder_id,
+  categoryName: p.folders?.[0]?.name ?? "Carpeta",
+  access: {
+    view: !!p.can_view,
+    edit: !!p.can_edit,
+    upload: !!p.can_upload,
+    delete: false,
+  },
+  inherited: false,
+  customized: true,
+  lastModified: new Date(p.updated_at || p.created_at),
+  modifiedBy: "admin",
+}));
+
 
   // 🔥 CLAVE: mantener permisos de otros usuarios
   setPermissions((prev) => {
@@ -207,9 +241,6 @@ const PermissionManagement: React.FC = () => {
     return [...filtered, ...userPermissions];
   });
 };
-
-
-
 
   // whenever selectedUser changes, load permissions for them
   useEffect(() => {
@@ -285,13 +316,14 @@ const PermissionManagement: React.FC = () => {
     setHasUnsavedChanges(true);
   };
 
+  
   // Save all permissions for selected user to DB
   const handleSaveChanges = async () => {
     if (!selectedUser) return;
 
     setLoading(true);
     try {
-      const userPerms = permissions.filter((p) => p.userId === selectedUser.id);
+      const userPerms = permissions.filter((p) => p.userId === selectedUser.id && p.customized);
 
       for (const p of userPerms) {
         // If permission row has id -> update, else upsert by unique keys (user_id, folder_id)
@@ -318,10 +350,10 @@ const PermissionManagement: React.FC = () => {
               can_view: p.access.view,
               can_edit: p.access.edit,
               can_upload: p.access.upload,
-              can_delete: p.access.delete,
-              created_at: new Date(),
-              updated_at: new Date(),
-              updated_by: p.modifiedBy
+              //can_delete: p.access.delete,
+              //created_at: new Date(),
+              //updated_at: new Date(),
+              //updated_by: p.modifiedBy
             },
             { onConflict: "user_id,folder_id" }
           );
@@ -383,7 +415,15 @@ const PermissionManagement: React.FC = () => {
     // optionally persist immediately (or require Save changes button)
     // await handleSaveChanges() // if you want to auto-save
   };
-const [isAdmin, setIsAdmin] = useState(false);
+const [isAdmin] = useState(false);
+
+const handleSelectUser = (user: User) => {
+  setHasUnsavedChanges(false);
+  setSelectedUser(user);
+  loadUserPermissions(user.id); // 🔥 usa el id
+};
+
+
 
   // compute user-specific permissions for passing to PermissionMatrix
   const userPermissions = selectedUser
@@ -391,7 +431,8 @@ const [isAdmin, setIsAdmin] = useState(false);
     : [];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background">
+
       <Header
         onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         showMenuButton={true}
@@ -403,20 +444,19 @@ const [isAdmin, setIsAdmin] = useState(false);
   onClose={() => setIsSidebarOpen(false)}
   isAdmin={isAdmin}
 />
-
-
   <main
   className={`
-    pt-16   /* altura del Header */
+    pt-16
     transition-all duration-300
-    min-h-screen
+    h-[calc(100vh-4rem)]
+    overflow-y-auto
     ${isSidebarCollapsed ? "lg:pl-16" : "lg:pl-64"}
   `}
 >
-         <div className="p-4 lg:p-6 h-[calc(100vh-64px)] flex flex-col">
-          <div className="mb-6">
+         <div className="mx-auto w-full max-w-7x1 p-10 lg:p-0 flex flex-col">
+          <div className="flex-shrink-0 pb-5">
             <NavigationBreadcrumb customItems={[]} />
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center justify-between pt-4">
               <div>
                 <h1 className="text-2xl font-bold text-foreground mb-2">
                   Gestión de Permisos
@@ -448,23 +488,21 @@ const [isAdmin, setIsAdmin] = useState(false);
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-3">
-              <div className="bg-card border border-border rounded-lg overflow-hidden h-[calc(100vh-240px)]">
+          <div className="overflow-y-auto">
+            <div className="flex flex-col lg:flex-row gap-6">
+            <div className="lg:w-1/4">
+              <div className="bg-card border border-border rounded-lg overflow-auto h-full">
                 <UserListPanel
                   users={users}
                   selectedUser={selectedUser}
-                  onUserSelect={(u: User) => {
-                    setSelectedUser(u);
-                    // loadUserPermissions is triggered by useEffect on selectedUser
-                  }}
+                  onUserSelect={handleSelectUser}
                 />
               </div>
             </div>
 
-            <div className="lg:col-span-6">
+            <div className="lg:flex-1">
               {selectedUser ? (
-                <div className="bg-card border border-border rounded-lg overflow-hidden h-[calc(100vh-240px)] p-4">
+                <div className="bg-card border border-border rounded-lg h-full">
                   <PermissionMatrix
                     categories={categories}
                     permissions={userPermissions}
@@ -472,7 +510,7 @@ const [isAdmin, setIsAdmin] = useState(false);
                     onPermissionChange={handlePermissionChange}
                     onResetToRole={handleResetToRole}
                   />
-                  <div className="mt-4 flex justify-end">
+                  <div className="p-4 flex justify-end">
                     {hasUnsavedChanges && (
                       <Button variant="default" onClick={handleSaveChanges}>
                         Guardar Cambios
@@ -481,7 +519,7 @@ const [isAdmin, setIsAdmin] = useState(false);
                   </div>
                 </div>
               ) : (
-                <div className="bg-card border border-border rounded-lg h-[calc(100vh-240px)] flex items-center justify-center">
+                <div className="bg-card border border-border rounded-lg h-full flex items-center justify-center">
                   <div className="text-center p-8">
                     <Icon
                       name="UserCheck"
@@ -492,40 +530,43 @@ const [isAdmin, setIsAdmin] = useState(false);
                     <h3 className="text-lg font-semibold text-foreground mb-2">
                       Seleccione un Usuario
                     </h3>
-                    <p className="text-sm text-muted-foreground max-w-md">
+                    <p className="text-sm text-muted-foreground max-w-[1200px]">
                       Elija un usuario de la lista para ver y modificar sus permisos
                       de acceso a archivos
                     </p>
-                  </div>  
+                  </div>
                 </div>
               )}
             </div>
 
-              <div className="lg:col-span-3 space-y-6">
-                <PermissionTemplates
-                  templates={templates}
-                  onApplyTemplate={handleApplyTemplate}
-                  onSaveAsTemplate={async (name: string, templatePermissions: any[]) => {
-                    // optional: save new template
-                    const { error } = await supabase.from("permission_templates").insert({
-                      name,
-                      description: "Guardada desde UI",
-                      role: selectedUser?.role ?? "user",
-                      permissions: templatePermissions,
-                      created_at: new Date()
-                    });
+              <div className="lg:w-1/4 h-full min-h-0">
+                <div className="bg-card border border-border rounded-lg overflow-auto h-full space-y-6 p-4">
+                  <PermissionTemplates
+                    templates={templates}
+                    onApplyTemplate={handleApplyTemplate}
+                    onSaveAsTemplate={async (name: string, templatePermissions: any[]) => {
+                      // optional: save new template
+                      const { error } = await supabase.from("permission_templates").insert({
+                        name,
+                        description: "Guardada desde UI",
+                        role: selectedUser?.role ?? "user",
+                        permissions: templatePermissions,
+                        created_at: new Date()
+                      });
 
-                    if (error) {
-                      console.error("Error saving template:", error);
-                      return;
-                    }
+                      if (error) {
+                        console.error("Error saving template:", error);
+                        return;
+                      }
 
-                    // reload templates
-                    await loadTemplates();
-                  }}
-                />
+                      // reload templates
+                      await loadTemplates();
+                    }}
+                  />
 
-              <ActivityLog history={history} />
+                  <ActivityLog history={history} />
+                </div>
+            </div>
             </div>
           </div>
         </div>

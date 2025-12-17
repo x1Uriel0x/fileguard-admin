@@ -353,9 +353,6 @@ const deleteFolder = async (folderId: string) => {
   await loadMyFiles();
 };
 
-
-
-
 const confirmDeleteFolder = async (folderId: string) => {
   const ok = window.confirm(
     "⚠️ Esta carpeta contiene archivos y subcarpetas.\n" +
@@ -393,13 +390,15 @@ const confirmDeleteFolder = async (folderId: string) => {
         )}
 
         {/* Lista de carpetas */}
-        {/* Lista de carpetas */}
         <FolderList
           folders={folders}
           setCurrentFolder={setCurrentFolder}
           onDelete={deleteFolder}
         />
 
+{/* Lista de archivos */}
+        <FileList files={myFiles} onDownload={downloadFile} onDelete={deleteFile} />
+      </div>
 
         {/* Subir archivos */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
@@ -433,9 +432,7 @@ const confirmDeleteFolder = async (folderId: string) => {
           )}
         </div>
 
-        {/* Lista de archivos */}
-        <FileList files={myFiles} onDownload={downloadFile} onDelete={deleteFile} />
-      </div>
+        
     </div>
   );
 };

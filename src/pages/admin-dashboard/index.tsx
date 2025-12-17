@@ -114,7 +114,8 @@ const AdminDashboard: React.FC = () => {
           showMenuButton
         />
 
-        <main className="flex-1 overflow-y-auto p-6 md:p-10">
+        <main className="flex-1 overflow-y-auto p-6 md:p-10 pt-16 ml-64">
+
           <NavigationBreadcrumb customItems={breadcrumbItems} />
 
           <h1 className="text-3xl font-bold mt-6">Panel de Control</h1>
