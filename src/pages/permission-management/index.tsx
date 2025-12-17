@@ -75,7 +75,7 @@ const PermissionManagement: React.FC = () => {
     );
   };
 
-  // Load categories from folders table (recommended option A)
+  // Load categories frm table
   const loadCategories = async () => {
     const { data, error } = await supabase
       .from("folders")
@@ -99,7 +99,7 @@ const PermissionManagement: React.FC = () => {
     );
   };
 
-  // Load permission templates (optional table)
+  // Load permission templa
   const loadTemplates = async () => {
     const { data, error } = await supabase
       .from("permission_templates")
@@ -107,12 +107,12 @@ const PermissionManagement: React.FC = () => {
       .order("created_at", { ascending: false });
 
     if (error) {
-      // If the table doesn't exist, just set empty
+      
       setTemplates([]);
       return;
     }
 
-    // Expect each template row to have a JSON column 'permissions' with structure matching PermissionTemplate.permissions
+    
     setTemplates((data || []).map((t: any) => ({
       id: t.id,
       name: t.name,
@@ -122,10 +122,10 @@ const PermissionManagement: React.FC = () => {
     })));
   };
 
-  // Load permission history (optional table)
+  // carga permission hitory
   const loadHistory = async () => {
   const { data, error } = await supabase
-    .from("permission_history")  // tu tabla real
+    .from("permission_history") 
     .select("*")
     .order("timestamp", { ascending: false });
 
@@ -136,17 +136,15 @@ const PermissionManagement: React.FC = () => {
 
  const history: PermissionHistory[] = await Promise.all(
   data.map(async (row: any) => {
-    // Usuario actual
+   
     const currentUser = (await supabase.auth.getUser()).data.user;
 
-    // 1️⃣ Usuario afectado
     const { data: user } = await supabase
       .from("profiles")
       .select("name")
       .eq("id", row.userId)
       .single();
-
-    // 2️⃣ Verificar permiso de carpeta
+//verofy folders
     const { data: permission } = await supabase
       .from("folder_permissions")
       .select("can_view")
@@ -154,7 +152,7 @@ const PermissionManagement: React.FC = () => {
       .eq("user_id", currentUser?.id)
       .single();
 
-    // 3️⃣ Cargar carpeta SOLO si puede verla
+   //carga als carpetas solo si se pueden ver 
     let folderName = "Sin acceso";
 
     if (permission?.can_view) {
@@ -167,7 +165,7 @@ const PermissionManagement: React.FC = () => {
       folderName = folder?.name ?? "Carpeta";
     }
 
-    // 4️⃣ Usuario que modificó (siempre)
+    // Usuario q modify
     const { data: modUser } = await supabase
       .from("profiles")
       .select("name")
@@ -192,7 +190,7 @@ const PermissionManagement: React.FC = () => {
   setHistory(history);
 };
 
-  // Load permissions for selected user (folder_permissions table)
+  // Load permisos from user seleccionado
   const loadUserPermissions = async (userId: string) => {
   const { data, error } = await supabase
     .from("folder_permissions")
@@ -235,14 +233,14 @@ const PermissionManagement: React.FC = () => {
 }));
 
 
-  // 🔥 CLAVE: mantener permisos de otros usuarios
+  // CLAVE: mantener permisos de otros usuarios
   setPermissions((prev) => {
     const filtered = prev.filter((perm) => perm.userId !== userId);
     return [...filtered, ...userPermissions];
   });
 };
 
-  // whenever selectedUser changes, load permissions for them
+  
   useEffect(() => {
     if (selectedUser) {
       loadUserPermissions(selectedUser.id);
@@ -283,11 +281,11 @@ const PermissionManagement: React.FC = () => {
 };
 
 
-  // Reset user's customized permissions (keep role defaults — we simply remove customized perms)
+
   const handleResetToRole = () => {
     if (!selectedUser) return;
 
-    // Remove customized permissions for this user
+   
     setPermissions((prev) =>
       prev.filter((p) => p.userId !== selectedUser.id || !p.customized)
     );
@@ -412,8 +410,7 @@ const PermissionManagement: React.FC = () => {
 
     setHasUnsavedChanges(true);
 
-    // optionally persist immediately (or require Save changes button)
-    // await handleSaveChanges() // if you want to auto-save
+  
   };
 const [isAdmin] = useState(false);
 
@@ -425,7 +422,7 @@ const handleSelectUser = (user: User) => {
 
 
 
-  // compute user-specific permissions for passing to PermissionMatrix
+  
   const userPermissions = selectedUser
     ? permissions.filter((p) => p.userId === selectedUser.id)
     : [];
@@ -584,3 +581,5 @@ const handleSelectUser = (user: User) => {
 };
 
 export default PermissionManagement;
+
+// : )

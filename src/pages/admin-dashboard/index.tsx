@@ -24,18 +24,18 @@ const AdminDashboard: React.FC = () => {
   const fetchUsers = async () => {
     setLoadingUsers(true);
 
-    // 1️⃣ Usuario autenticado
+    //Usuario autenticado
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // ❌ No hay sesión → login
+    // No hay sesión → login
     if (!user) {
       navigate("/login", { replace: true });
       return;
     }
 
-    // 2️⃣ Perfil REAL desde profiles
+    // Perfil REAL desde profiles
     const { data: myProfile, error: roleError } = await supabase
       .from("profiles")
       .select("role")
@@ -51,13 +51,13 @@ const AdminDashboard: React.FC = () => {
     const admin = myProfile.role === "admin";
     setIsAdmin(admin);
 
-    // ⛔ SI NO ES ADMIN → FUERA DEL DASHBOARD
+    //SI NO ES ADMIN → FUERA DEL DASHBOARD
     if (!admin) {
       navigate("/file-upload", { replace: true });
       return;
     }
 
-    // 3️⃣ Admin → puede ver todos los perfiles
+    // Admin → puede ver todos los perfiles
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -71,7 +71,7 @@ const AdminDashboard: React.FC = () => {
 
     
 
-    // 4️⃣ Formatear datos
+    // Formatear datos
     const formatted: User[] = (data || []).map((p) => ({
       id: p.id,
       name: p.name || "Sin nombre",

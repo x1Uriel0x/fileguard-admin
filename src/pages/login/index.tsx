@@ -55,7 +55,7 @@ const Login = () => {
         return;
       }
 
-      // 🚀 LOGIN CON SUPABASE
+      //LOGIN CON SUPABASE
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
@@ -69,7 +69,7 @@ const Login = () => {
         return;
       }
 
-      // ☑️ Recordarme
+      // Recordarme
       if (formData.rememberMe) {
         localStorage.setItem('fileGuard_email', formData.email);
         localStorage.setItem('fileGuard_rememberMe', 'true');
@@ -77,7 +77,7 @@ const Login = () => {
 
       localStorage.setItem('fileGuard_isAuthenticated', 'true');
 
-      // 🔥 OBTENER ROL REAL DESDE PROFILES
+      // OBTENER ROL REAL DESDE PROFILES
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
@@ -91,7 +91,7 @@ const Login = () => {
         return;
       }
 
-      // ✅ REDIRECCIÓN SEGÚN ROL
+      //REDIRECCIÓN SEGÚN ROL
       if (profile.role === 'admin') {
         navigate('/admin-dashboard', { replace: true });
       } else {
