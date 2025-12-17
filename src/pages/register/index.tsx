@@ -130,9 +130,7 @@ const Register = () => {
       newErrors.email = 'El correo electrónico es obligatorio';
     } else if (!emailRegex.test(formData.email)) {
       newErrors.email = 'Formato de correo electrónico inválido';
-    } /*else if (mockExistingEmails.includes(formData.email.toLowerCase())) {
-      newErrors.email = 'Este correo electrónico ya está registrado';
-    }*/
+    } 
 
     if (!formData.password) {
       newErrors.password = 'La contraseña es obligatoria';
@@ -170,7 +168,7 @@ const Register = () => {
     setIsLoading(true);
 
 try {
-  // 1️⃣ Crear usuario en Auth
+  // Crear usuario en Auth
   const { data, error } = await supabase.auth.signUp({
     email: formData.email,
     password: formData.password,
@@ -185,13 +183,12 @@ try {
   const user = data.user;
   console.log("Nuevo usuario:", user);
 
-  // 2️⃣ Insertar registro en la tabla PROFILES
+  // Insertar registro en la tabla PROFILES
   if (user) {
     const { error: profileError } = await supabase.from("profiles").insert({
-      id: user.id,               // ← IMPORTANTE
-      email: formData.email,
+      id: user.id,               
       name: formData.name,
-      role: "user",              // ← Todos los registros empiezan como user
+      role: "user",          
       avatar_url: null,
     });
 

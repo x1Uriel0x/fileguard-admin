@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 
 interface CreateFolderModalProps {
-  userId: string | null;    // 👈 Aceptamos null
+  userId: string | null;    
   parentId: string | null;
   onFolderCreated: () => void;
 }
@@ -28,7 +28,7 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
     const { error } = await supabase.from("folders").insert({
       name,
       parent_id: parentId,
-      owner_id: userId, // 👈 Ahora seguro
+      owner_id: userId, 
     });
 
     if (error) {
@@ -52,7 +52,7 @@ const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
 
       <button
         onClick={create}
-        disabled={!userId} // 👈 Si no hay usuario, no deja
+        disabled={!userId} //Si no hay usuario, no deja
         className={`px-4 py-2 rounded text-white 
           ${userId ? "bg-primary" : "bg-gray-400 cursor-not-allowed"}
         `}

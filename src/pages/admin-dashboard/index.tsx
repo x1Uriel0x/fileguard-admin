@@ -21,78 +21,80 @@ const AdminDashboard: React.FC = () => {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      setLoadingUsers(true);
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
 
-      // 1️⃣ Usuario autenticado
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    // 1️⃣ Usuario autenticado
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      // ❌ No hay sesión → login
-      if (!user) {
-        navigate("/login", { replace: true });
-        return;
-      }
+    // ❌ No hay sesión → login
+    if (!user) {
+      navigate("/login", { replace: true });
+      return;
+    }
 
-      // 2️⃣ Perfil REAL desde profiles
-      const { data: myProfile, error: roleError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+    // 2️⃣ Perfil REAL desde profiles
+    const { data: myProfile, error: roleError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
-      if (roleError || !myProfile) {
-        console.error("Error loading role:", roleError);
-        navigate("/login", { replace: true });
-        return;
-      }
+    if (roleError || !myProfile) {
+      console.error("Error loading role:", roleError);
+      navigate("/login", { replace: true });
+      return;
+    }
 
-      const admin = myProfile.role === "admin";
-      setIsAdmin(admin);
+    const admin = myProfile.role === "admin";
+    setIsAdmin(admin);
 
-      // ⛔ SI NO ES ADMIN → FUERA DEL DASHBOARD
-      if (!admin) {
-        navigate("/file-upload", { replace: true });
-        return;
-      }
+    // ⛔ SI NO ES ADMIN → FUERA DEL DASHBOARD
+    if (!admin) {
+      navigate("/file-upload", { replace: true });
+      return;
+    }
 
-      // 3️⃣ Admin → puede ver todos los perfiles
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
+    // 3️⃣ Admin → puede ver todos los perfiles
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error loading profiles:", error);
-        setLoadingUsers(false);
-        return;
-      }
-
-      // 4️⃣ Formatear datos
-      const formatted: User[] = (data || []).map((p) => ({
-        id: p.id,
-        name: p.name || "Sin nombre",
-        email: p.email,
-        role: p.role,
-        avatar:
-          p.avatar_url ||
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            p.name || "User"
-          )}`,
-        alt: p.name || "User",
-        status: "active",
-        lastActivity: new Date(p.created_at),
-        permissions: [],
-        filesAccessed: 0,
-        joinedDate: new Date(p.created_at),
-      }));
-
-      setUsers(formatted);
+    if (error) {
+      console.error("Error loading profiles:", error);
       setLoadingUsers(false);
-    };
+      return;
+    }
 
+    
+
+    // 4️⃣ Formatear datos
+    const formatted: User[] = (data || []).map((p) => ({
+      id: p.id,
+      name: p.name || "Sin nombre",
+      email: p.email,
+      role: p.role,
+      avatar:
+        p.avatar_url ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(
+          p.name || "User"
+        )}`,
+      alt: p.name || "User",
+      status: "active",
+      lastActivity: new Date(p.created_at),
+      permissions: [],
+      filesAccessed: 0,
+      joinedDate: new Date(p.created_at),
+    }));
+
+    setUsers(formatted);
+    setLoadingUsers(false);
+  };
+
+  useEffect(() => {
     fetchUsers();
   }, [navigate]);
 
@@ -161,6 +163,7 @@ const AdminDashboard: React.FC = () => {
               onViewPermissions={(id) =>
                 console.log("Ver permisos del usuario:", id)
               }
+              onRefreshUsers={() => fetchUsers()}
             />
           </div>
 

@@ -10,6 +10,7 @@ export interface User {
   permissions: Permission[];
   filesAccessed: number;
   joinedDate: Date;
+  is_banned?: boolean;
 }
 export type LogItem = {
   id: string;

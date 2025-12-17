@@ -13,3 +13,4 @@ async function updateUserRole(userId: string, newRole: "admin" | "user") {
 
   return true;
 }
+

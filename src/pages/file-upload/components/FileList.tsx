@@ -96,7 +96,7 @@ const FileList: React.FC<FileListProps> = ({ files, onDownload, onDelete }) => {
   <button
   className="text-red-600 hover:text-red-800"
   onClick={(e) => {
-    e.stopPropagation();          // 🔥 CLAVE
+    e.stopPropagation();      
     onDelete(file);
   }}
 >

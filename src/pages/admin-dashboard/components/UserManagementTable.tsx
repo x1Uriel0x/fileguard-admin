@@ -7,11 +7,13 @@ import Select from '../../../components/ui/Select';
 import type { User, SortField, SortOrder } from '../types/';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { supabase } from '../../../lib/supabase';
 
 interface UserManagementTableProps {
   users: User[];
   onEditUser: (id: string) => void;
   onViewPermissions: (id: string) => void;
+  onRefreshUsers: () => void;
   loading?: boolean;  // ⬅ AÑADIMOS ESTA LÍNEA
 }
 
@@ -20,6 +22,7 @@ const UserManagementTable = ({
   users,
   onEditUser,
   onViewPermissions,
+  onRefreshUsers,
   loading,
 }: UserManagementTableProps) => {
 
@@ -123,6 +126,26 @@ const UserManagementTable = ({
         return 'Invitado';
     }
   };
+
+  const toggleBanUser = async (userId: string, isBanned: boolean) => {
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      is_banned: !isBanned,
+      status: !isBanned ? "suspended" : "active",
+    })
+    .eq("id", userId);
+
+  if (error) {
+    console.error("Error al cambiar estado del usuario:", error);
+    return;
+  }
+
+  onRefreshUsers(); // refresca la tabla
+};
+
+
+
 
   return (
     <div className="space-y-4">
@@ -261,28 +284,35 @@ const UserManagementTable = ({
                 <td className="py-3 px-4">
                   <span className="text-sm text-foreground">{user.filesAccessed}</span>
                 </td>
-                <td className="py-3 px-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onViewPermissions(user.id)}
-                      iconName="Shield"
-                      iconSize={16}
-                    >
-                      Permisos
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEditUser(user.id)}
-                      iconName="Edit"
-                      iconSize={16}
-                    >
-                      Editar
-                    </Button>
-                  </div>
-                </td>
+               <td className="py-3 px-4">
+                <div className="flex items-center justify-end gap-2">
+
+                  {/* Ver permisos actuales */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewPermissions(user.id)}
+                    iconName="Shield"
+                    iconSize={16}
+                  >
+                    Permisos
+                  </Button>
+
+                  {/* Banear / Desbanear */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleBanUser(user.id, !!user.is_banned)}
+                    iconName={user.is_banned ? "UserCheck" : "UserX"}
+                    iconSize={16}
+                >
+                  {user.is_banned ? "Desbanear" : "Banear"}
+                </Button>
+
+
+                </div>
+              </td>
+
               </tr>
             ))}
           </tbody>
