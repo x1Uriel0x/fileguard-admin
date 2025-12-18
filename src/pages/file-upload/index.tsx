@@ -282,6 +282,9 @@ console.log(" Archivo guardado en BD:", metadata);
     await loadMyFiles();
   };
 
+//verifica los permisos actualaes y decide 
+
+
   const updateFileStatus = (file: File, updates: Partial<UploadedFile>) => {
     setUploadedFiles(prev =>
       prev.map(f => f.file === file ? { ...f, ...updates } : f)

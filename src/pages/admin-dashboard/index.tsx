@@ -13,6 +13,8 @@ import UserManagementTable from "./components/UserManagementTable";
 import { supabase } from "../../lib/supabase";
 import type { User } from "./types";
 
+
+
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
 
@@ -73,26 +75,49 @@ const AdminDashboard: React.FC = () => {
 
     // Formatear datos
     const formatted: User[] = (data || []).map((p) => ({
-      id: p.id,
-      name: p.name || "Sin nombre",
-      email: p.email,
-      role: p.role,
-      avatar:
-        p.avatar_url ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          p.name || "User"
-        )}`,
-      alt: p.name || "User",
-      status: "active",
-      lastActivity: new Date(p.created_at),
-      permissions: [],
-      filesAccessed: 0,
-      joinedDate: new Date(p.created_at),
-    }));
+    id: p.id,
+    name: p.name || "Sin nombre",
+    email: p.email,
+    role: p.role,
+    banned: p.banned ?? false, // 👈 CLAVE
+    avatar:
+      p.avatar_url ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        p.name || "User"
+      )}`,
+    alt: p.name || "User",
+    status: p.banned ? "banned" : "active",
+    lastActivity: new Date(p.created_at),
+    permissions: [],
+    filesAccessed: 0,
+    joinedDate: new Date(p.created_at),
+  }));
+
 
     setUsers(formatted);
     setLoadingUsers(false);
   };
+
+  const handleBanToggle = async (userId: string, currentStatus: boolean) => {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ banned: !currentStatus })
+    .eq("id", userId);
+
+  if (error) {
+    console.error("Error al cambiar estado del usuario:", error);
+    return;
+  }
+
+  // refrescar usuarios
+  await fetchUsers();
+};
+
+const handleViewPermissions = (userId: string) => {
+  // navegar a la página de permisos con el usuario seleccionado
+  navigate(`/permission-management?user=${userId}`);
+};
+
 
   useEffect(() => {
     fetchUsers();
@@ -157,14 +182,18 @@ const AdminDashboard: React.FC = () => {
           {/* USERS TABLE */}
           <div className="mt-10">
             <UserManagementTable
-              users={users}
-              loading={loadingUsers}
-              onEditUser={(id) => console.log("Editar usuario:", id)}
-              onViewPermissions={(id) =>
-                console.log("Ver permisos del usuario:", id)
-              }
-              onRefreshUsers={() => fetchUsers()}
-            />
+            users={users}
+            loading={loadingUsers}
+            onEditUser={(id) => {
+              const u = users.find((u) => u.id === id);
+              if (!u) return;
+              handleBanToggle(u.id, u.banned);
+            }}
+            onViewPermissions={handleViewPermissions}
+            onRefreshUsers={fetchUsers}
+          />
+
+
           </div>
 
           {/* REQUESTS */}

@@ -370,20 +370,20 @@ const UserManagementTable = ({
                 fullWidth
                 onClick={() => onViewPermissions(user.id)}
                 iconName="Shield"
-                iconSize={16}
               >
                 Permisos
               </Button>
+
               <Button
-                variant="outline"
+                variant={user.banned ? "destructive" : "outline"}
                 size="sm"
                 fullWidth
                 onClick={() => onEditUser(user.id)}
-                iconName="Edit"
-                iconSize={16}
+                iconName={user.banned ? "UserX" : "UserCheck"}
               >
-                Editar
+                {user.banned ? "Desbanear" : "Banear"}
               </Button>
+
             </div>
           </div>
         ))}

@@ -6,11 +6,12 @@ export interface User {
   avatar: string;
   alt: string;
   lastActivity: Date;
-  status: 'active' | 'inactive' | 'suspended';
+  status: "active" | "inactive" | "suspended" | "banned";
   permissions: Permission[];
   filesAccessed: number;
   joinedDate: Date;
   is_banned?: boolean;
+  banned: boolean;
 }
 export type LogItem = {
   id: string;

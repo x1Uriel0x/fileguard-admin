@@ -10,6 +10,9 @@ import PermissionTemplates from "./components/PermissionTemplates";
 import ActivityLog from "./components/ActivityLog";
 import BulkPermissionModal from "./components/BulkPermissionModal";
 
+import { useSearchParams } from "react-router-dom";
+
+
 import { supabase } from "../../lib/supabase";
 import type {
   User,
@@ -20,6 +23,8 @@ import type {
   AccessLevel
 } from "./types";
 
+
+
 const PermissionManagement: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -27,7 +32,9 @@ const PermissionManagement: React.FC = () => {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  
+  const [searchParams] = useSearchParams();
+  const userFromUrl = searchParams.get("user");
+
   // real data states
   const [users, setUsers] = useState<User[]>([]);
   const [categories, setCategories] = useState<FileCategory[]>([]);
@@ -77,27 +84,57 @@ const PermissionManagement: React.FC = () => {
 
   // Load categories frm table
   const loadCategories = async () => {
-    const { data, error } = await supabase
-      .from("folders")
-      .select("*")
-      .order("name", { ascending: true });
+  const { data: folders, error } = await supabase
+    .from("folders")
+    .select("id, name, parent_id")
+    .order("name", { ascending: true });
 
-    if (error) {
-      console.error("Error cargando folders as categories:", error);
-      setCategories([]);
-      return;
-    }
+  if (error) {
+    console.error("Error cargando folders:", error);
+    setCategories([]);
+    return;
+  }
 
-    setCategories(
-      (data || []).map((f: any) => ({
-        id: f.id,
-        name: f.name ?? "Sin nombre",
-        description: f.description ?? "",
-        icon: "Folder",
-        fileCount: f.file_count ?? 0
-      }))
-    );
+  // 1️⃣ Cargar TODOS los archivos
+  const { data: files, error: filesError } = await supabase
+    .from("archivos")
+    .select("id, folder_id");
+
+  if (filesError) {
+    console.error("Error cargando archivos:", filesError);
+    return;
+  }
+
+  // 2️⃣ Función para obtener subcarpetas recursivas
+  const getAllSubfolderIds = (folderId: string): string[] => {
+    const children = folders
+      .filter((f) => f.parent_id === folderId)
+      .map((f) => f.id);
+
+    return children.flatMap((id) => [id, ...getAllSubfolderIds(id)]);
   };
+
+  // 3️⃣ Armar categorías con conteo real
+  const categories = folders.map((folder) => {
+    const subfolderIds = getAllSubfolderIds(folder.id);
+    const validFolderIds = [folder.id, ...subfolderIds];
+
+    const fileCount = files.filter((f) =>
+      validFolderIds.includes(f.folder_id)
+    ).length;
+
+    return {
+      id: folder.id,
+      name: folder.name ?? "Sin nombre",
+      description: "",
+      icon: "Folder",
+      fileCount
+    };
+  });
+
+  setCategories(categories);
+};
+
 
   // Load permission templa
   const loadTemplates = async () => {
@@ -240,7 +277,15 @@ const PermissionManagement: React.FC = () => {
   });
 };
 
-  
+  useEffect(() => {
+  if (!userFromUrl || users.length === 0) return;
+
+  const foundUser = users.find((u) => u.id === userFromUrl);
+  if (foundUser) {
+    setSelectedUser(foundUser);
+  }
+}, [userFromUrl, users]);
+
   useEffect(() => {
     if (selectedUser) {
       loadUserPermissions(selectedUser.id);
