@@ -4,10 +4,11 @@ import { Folder, Trash2 } from "lucide-react";
 interface FolderListProps {
   folders: any[];
   setCurrentFolder: (id: string | null) => void;
+  setCurrentFolderName: (name: string) => void;
   onDelete: (id: string) => void;
 }
 
-const FolderList: React.FC<FolderListProps> = ({ folders, setCurrentFolder, onDelete }) => {
+const FolderList: React.FC<FolderListProps> = ({ folders, setCurrentFolder, setCurrentFolderName, onDelete }) => {
   if (!folders || folders.length === 0) {
     return null;
   }
@@ -31,13 +32,19 @@ const FolderList: React.FC<FolderListProps> = ({ folders, setCurrentFolder, onDe
           </button>
 
           {/* ABRIR CARPETA */}
-          <div
-            onClick={() => setCurrentFolder(folder.id)}
-            className="flex flex-col items-center cursor-pointer"
-          >
-            <Folder className="w-10 h-10 text-blue-600" />
-            <p className="mt-2 text-sm font-medium text-gray-800 truncate">{folder.name}</p>
-          </div>
+            <div
+              onClick={() => {
+                setCurrentFolder(folder.id);
+                setCurrentFolderName(folder.name); 
+              }}
+              className="flex flex-col items-center cursor-pointer"
+            >
+              <Folder className="w-10 h-10 text-blue-600" />
+              <p className="mt-2 text-sm font-medium text-gray-800 truncate">
+                {folder.name}
+              </p>
+            </div>
+ 
         </div>
       ))}
     </div>

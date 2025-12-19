@@ -12,6 +12,15 @@ import type { Folder } from "./types";
 import { Upload as UploadIcon, Folder as FolderIcon } from "lucide-react";
 import Header from '../../components/ui/Header';
 
+interface Permission {
+  userId: string;
+  categoryId: string;
+  access: {
+    upload: boolean;
+    edit?: boolean;
+  };
+}
+
 
 const FileUpload: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -22,9 +31,12 @@ const FileUpload: React.FC = () => {
   const [role, setRole] = useState<"admin" | "user">("user");
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   
+  const [currentFolderName, setCurrentFolderName] = useState<string | null>(null);
+
   const [isUploading, setIsUploading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
 
   //  Carga inicial
   useEffect(() => {
@@ -219,68 +231,81 @@ const loadUserRole = async (uid: string) => {
     uploadFiles(newFiles);
   };
 
+ 
+
+  const hasUploadPermission = (folderId: string | null): boolean => {
+  if (!folderId) return false;
+
+  // Si es el dueño de la carpeta → puede subir
+  const folder = folders.find((f) => f.id === folderId);
+  if (folder && folder.owner_id === userId) {
+    return true;
+  }
+
+  //  Si no es dueño → revisar permisos asignados
+  const permission = permissions.find(
+    (p: Permission) =>
+      p.userId === userId &&
+      p.categoryId === folderId &&
+      p.access.upload === true
+  );
+
+  return !!permission;
+};
+
+
+
   //  Subir archivos y asignar carpeta
-  const uploadFiles = async (filesToUpload: UploadedFile[]) => {
-    if (!userId) {
-      alert('Por favor inicia sesión para subir archivos');
-      return;
-    }
+ const uploadFiles = async (filesToUpload: UploadedFile[]) => {
+  if (!userId) {
+    alert("Por favor inicia sesión");
+    return;
+  }
 
-    setIsUploading(true);
+  if (!(await hasUploadPermission(currentFolder))) {
+    alert("No tienes permisos para subir archivos en esta carpeta");
+    return;
+  }
 
-    for (const uploadedFile of filesToUpload) {
-      try {
-        updateFileStatus(uploadedFile.file, { status: 'uploading', progress: 0 });
+  setIsUploading(true);
 
-        const timestamp = Date.now();
-        const fileName = `${timestamp}-${uploadedFile.file.name}`;
-        const filePath = `${userId}/${fileName}`;
+  for (const uploadedFile of filesToUpload) {
+    try {
+      updateFileStatus(uploadedFile.file, { status: "uploading", progress: 0 });
 
-        updateFileStatus(uploadedFile.file, { progress: 30 });
+      const timestamp = Date.now();
+      const fileName = `${timestamp}-${uploadedFile.file.name}`;
+      const filePath = `${userId}/${fileName}`;
 
-        // Subir archivo físicamente
-        const { error: uploadError } = await supabase.storage
-          .from('mis_archivos')
-          .upload(filePath, uploadedFile.file);
+      const { error: uploadError } = await supabase.storage
+        .from("mis_archivos")
+        .upload(filePath, uploadedFile.file);
 
-        if (uploadError) throw uploadError;
+      if (uploadError) throw uploadError;
 
-        updateFileStatus(uploadedFile.file, { progress: 70 });
-
-        // Guardar metadatos y carpeta asignada
-        const { data: metadata, error: dbError } = await supabase
-      .from('archivos')
-      .insert({
+      const { error: dbError } = await supabase.from("archivos").insert({
         nombre: uploadedFile.file.name,
         path: filePath,
         owner_id: userId,
-        folder_id: currentFolder ?? null,  //  ARREGLO REAL
-        permisos: { read: true, write: true, delete: true }
-      })
-      .select()
-      .single();
-console.log(" Archivo guardado en BD:", metadata);
+        folder_id: currentFolder,
+      });
 
+      if (dbError) throw dbError;
 
-        if (dbError) throw dbError;
+      updateFileStatus(uploadedFile.file, { status: "success", progress: 100 });
 
-        updateFileStatus(uploadedFile.file, {
-          status: 'success',
-          progress: 100,
-          metadata
-        });
-
-      } catch (error: any) {
-        updateFileStatus(uploadedFile.file, {
-          status: 'error',
-          error: error.message || 'Error al subir archivo'
-        });
-      }
+    } catch (err: any) {
+      updateFileStatus(uploadedFile.file, {
+        status: "error",
+        error: err.message,
+      });
     }
+  }
 
-    setIsUploading(false);
-    await loadMyFiles();
-  };
+  setIsUploading(false);
+  await loadMyFiles();
+};
+
 
 //verifica los permisos actualaes y decide 
 
@@ -302,6 +327,7 @@ console.log(" Archivo guardado en BD:", metadata);
 
   if (data?.signedUrl) window.open(data.signedUrl, "_blank");
 };
+
 
 const deleteFolder = async (folderId: string) => {
   if (!confirm("¿Eliminar carpeta y todo su contenido?")) return;
@@ -370,6 +396,8 @@ const confirmDeleteFolder = async (folderId: string) => {
   await loadFolders();
 };
 
+
+
   return (
     <div className="min-h-screen bg-gray-50" style={{ paddingTop: "5rem" }}>
 
@@ -383,21 +411,34 @@ const confirmDeleteFolder = async (folderId: string) => {
           userId={userId}
           onFolderCreated={loadFolders}
         />
-
+      
         {/* Breadcrumb */}
-        {currentFolder && (
+          {currentFolder && (
+        <div className="flex items-center gap-3 mb-4">
           <button
-            className="text-sm mb-4 text-blue-600"
-            onClick={() => setCurrentFolder(null)}
+            className="text-sm text-blue-600"
+            onClick={() => {
+              setCurrentFolder(null);
+              setCurrentFolderName(null);
+            }}
           >
-            ← Volver
-          </button>
+      ← Volver
+    </button>
+
+    <span className="text-sm text-gray-500">/</span>
+
+    <span className="text-sm font-semibold text-gray-800">
+      {currentFolderName}
+    </span>
+  </div>
         )}
+
 
         {/* Lista de carpetas */}
         <FolderList
           folders={folders}
           setCurrentFolder={setCurrentFolder}
+           setCurrentFolderName={setCurrentFolderName}
           onDelete={deleteFolder}
         />
 
