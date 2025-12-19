@@ -13,6 +13,7 @@ interface UserManagementTableProps {
   users: User[];
   onEditUser: (id: string) => void;
   onViewPermissions: (id: string) => void;
+  onBanToggle: (id: string, banned: boolean) => void;
   onRefreshUsers: () => void;
   loading?: boolean;  // ⬅ AÑADIMOS ESTA LÍNEA
 }
@@ -22,6 +23,7 @@ const UserManagementTable = ({
   users,
   onEditUser,
   onViewPermissions,
+  onBanToggle,
   onRefreshUsers,
   loading,
 }: UserManagementTableProps) => {
@@ -131,7 +133,7 @@ const UserManagementTable = ({
   const { error } = await supabase
     .from("profiles")
     .update({
-      is_banned: !isBanned,
+      banned: !isBanned,
       status: !isBanned ? "suspended" : "active",
     })
     .eq("id", userId);
@@ -298,15 +300,15 @@ const UserManagementTable = ({
                     Permisos
                   </Button>
 
-                  {/* Banear / Desbanear */}
+                  {/* Suspender / Reactivar */}
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => toggleBanUser(user.id, !!user.is_banned)}
-                    iconName={user.is_banned ? "UserCheck" : "UserX"}
+                    onClick={() => toggleBanUser(user.id, !!user.banned)}
+                    iconName={user.banned ? "UserCheck" : "UserX"}
                     iconSize={16}
                 >
-                  {user.is_banned ? "Desbanear" : "Banear"}
+                  {user.banned ? "Reactivar" : "Suspender"}
                 </Button>
 
 
@@ -378,10 +380,10 @@ const UserManagementTable = ({
                 variant={user.banned ? "destructive" : "outline"}
                 size="sm"
                 fullWidth
-                onClick={() => onEditUser(user.id)}
-                iconName={user.banned ? "UserX" : "UserCheck"}
+                onClick={() => toggleBanUser(user.id, !!user.banned)}
+                iconName={user.banned ? "UserCheck" : "UserX"}
               >
-                {user.banned ? "Desbanear" : "Banear"}
+                {user.banned ? "Reactivar" : "Suspender"}
               </Button>
 
             </div>

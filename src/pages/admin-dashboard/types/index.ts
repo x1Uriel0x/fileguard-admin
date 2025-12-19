@@ -6,7 +6,7 @@ export interface User {
   avatar: string;
   alt: string;
   lastActivity: Date;
-  status: "active" | "inactive" | "suspended" | "banned";
+  status: "active" | "inactive" | "suspended";
   permissions: Permission[];
   filesAccessed: number;
   joinedDate: Date;

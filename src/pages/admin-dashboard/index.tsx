@@ -86,7 +86,7 @@ const AdminDashboard: React.FC = () => {
         p.name || "User"
       )}`,
     alt: p.name || "User",
-    status: p.banned ? "banned" : "active",
+    status: p.banned ? "suspended" : "active",
     lastActivity: new Date(p.created_at),
     permissions: [],
     filesAccessed: 0,
@@ -98,20 +98,27 @@ const AdminDashboard: React.FC = () => {
     setLoadingUsers(false);
   };
 
-  const handleBanToggle = async (userId: string, currentStatus: boolean) => {
+  const handleBanToggle = async (userId: string, banned: boolean) => {
+  const confirmMsg = banned
+    ? "¿Deseas desactivar a este usuario?"
+    : "¿Deseas reactivar a este usuario?";
+
+  if (!window.confirm(confirmMsg)) return;
+
   const { error } = await supabase
     .from("profiles")
-    .update({ banned: !currentStatus })
+    .update({ banned: !banned })
     .eq("id", userId);
 
   if (error) {
-    console.error("Error al cambiar estado del usuario:", error);
+    alert("Error cambiando estado del usuario");
+    console.error(error);
     return;
   }
 
-  // refrescar usuarios
-  await fetchUsers();
+  await fetchUsers(); // refrescar tabla
 };
+
 
 const handleViewPermissions = (userId: string) => {
   // navegar a la página de permisos con el usuario seleccionado
@@ -181,7 +188,7 @@ const handleViewPermissions = (userId: string) => {
 
           {/* USERS TABLE */}
           <div className="mt-10">
-            <UserManagementTable
+          <UserManagementTable
             users={users}
             loading={loadingUsers}
             onEditUser={(id) => {
@@ -190,6 +197,7 @@ const handleViewPermissions = (userId: string) => {
               handleBanToggle(u.id, u.banned);
             }}
             onViewPermissions={handleViewPermissions}
+            onBanToggle={handleBanToggle}
             onRefreshUsers={fetchUsers}
           />
 

@@ -57,17 +57,50 @@ const Login = () => {
 
       //LOGIN CON SUPABASE
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
+  email: formData.email,
+  password: formData.password,
+});
 
-      if (error || !data.session) {
-        setErrors({
-          general: 'Credenciales incorrectas. Por favor, intente nuevamente.',
-        });
-        setIsLoading(false);
-        return;
-      }
+if (error || !data.session) {
+  setErrors({
+    general: 'Credenciales incorrectas. Por favor, intente nuevamente.',
+  });
+  setIsLoading(false);
+  return;
+}
+
+//NUEVO: verificar si está baneado
+const userId = data.user.id;
+
+const { data: profile, error: profileError } = await supabase
+  .from("profiles")
+  .select("banned")
+  .eq("id", userId)
+  .single();
+
+if (profileError) {
+  await supabase.auth.signOut();
+  setErrors({
+    general: 'Error al verificar el estado del usuario.',
+  });
+  setIsLoading(false);
+  return;
+}
+
+// SI ESTÁ BANEADO → FUERA
+if (profile?.banned) {
+  await supabase.auth.signOut();
+
+  setErrors({
+    general: 'Tu cuenta ha sido suspendida. Contacta al administrador.',
+  });
+
+  setIsLoading(false);
+  return;
+}
+
+// ✅ Si llega aquí → login permitido
+
 
       // Recordarme
       if (formData.rememberMe) {
@@ -78,13 +111,13 @@ const Login = () => {
       localStorage.setItem('fileGuard_isAuthenticated', 'true');
 
       // OBTENER ROL REAL DESDE PROFILES
-      const { data: profile, error: profileError } = await supabase
+      const { data: roleProfile, error: roleProfileError } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', data.session.user.id)
         .single();
 
-      if (profileError || !profile) {
+      if (roleProfileError || !roleProfile) {
         setErrors({
           general: 'No se pudo obtener el rol del usuario',
         });
@@ -92,7 +125,7 @@ const Login = () => {
       }
 
       //REDIRECCIÓN SEGÚN ROL
-      if (profile.role === 'admin') {
+      if (roleProfile.role === 'admin') {
         navigate('/admin-dashboard', { replace: true });
       } else {
         navigate('/file-upload', { replace: true });

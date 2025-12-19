@@ -9,7 +9,7 @@ import FileList from './components/FileList';
 import type { UploadedFile, FileMetadata } from "./types";
 import type { Folder } from "./types";
 
-import { Upload as UploadIcon, Folder as FolderIcon } from "lucide-react";
+import { Upload as UploadIcon } from "lucide-react";
 import Header from '../../components/ui/Header';
 
 interface Permission {
@@ -36,7 +36,7 @@ const FileUpload: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [permissions] = useState<Permission[]>([]);
 
   //  Carga inicial
   useEffect(() => {
@@ -50,12 +50,6 @@ useEffect(() => {
   loadFolders();    // admin → todo
   loadMyFiles();
 }, [userId, role, currentFolder]);
-
-  const init = async () => {
-    await checkUser();      
-    await loadFolders();
-    await loadMyFiles();
-  };  
 
   // Obtener usuario
  const checkUser = async () => {
@@ -205,18 +199,7 @@ if (currentFolder) {
 };
 
 
-const loadUserRole = async (uid: string) => {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", uid)  
-    .single();
 
-  if (!error && data) {
-    console.log("Rol detectado:", data.role);
-    setRole(data.role); 
-  }
-};
 
 
   // Maneja archivos seleccionados
@@ -330,59 +313,49 @@ const loadUserRole = async (uid: string) => {
 
 
 const deleteFolder = async (folderId: string) => {
-  if (!confirm("¿Eliminar carpeta y todo su contenido?")) return;
+  if (!confirm("¿Desea eliminar esta carpeta y todo su contenido?")) return;
 
-  //  Obtener archivos dentro de la carpeta
+  //  Obtener TODOS los archivos dentro de la carpeta
   const { data: files, error: filesError } = await supabase
     .from("archivos")
     .select("id, path")
     .eq("folder_id", folderId);
 
   if (filesError) {
+    console.error(filesError);
     alert("Error obteniendo archivos");
     return;
   }
 
-  // Borrar archivos del storage
+  //  Eliminar archivos del Storage
   if (files && files.length > 0) {
-    const paths = files.map(f => f.path);
+    const paths = files.map((f) => f.path);
+    await supabase.storage.from("mis_archivos").remove(paths);
 
-    const { error: storageError } = await supabase.storage
-      .from("mis_archivos")
-      .remove(paths);
-
-    if (storageError) {
-      alert("Error borrando archivos del storage");
-      return;
-    }
-
-    // Borrar archivos de la BD
-    const { error: dbFilesError } = await supabase
+    // Eliminar archivos de la BD
+    await supabase
       .from("archivos")
       .delete()
       .eq("folder_id", folderId);
-
-    if (dbFilesError) {
-      alert("Error borrando archivos de la base");
-      return;
-    }
   }
 
-  // Borrar carpeta
+  //  Eliminar la carpeta
   const { error: folderError } = await supabase
     .from("folders")
     .delete()
     .eq("id", folderId);
 
   if (folderError) {
-    alert("Error borrando carpeta");
+    console.error(folderError);
+    alert("Error eliminando carpeta");
     return;
   }
 
-  // Refrescar UI
+  // Recargar vista
   await loadFolders();
   await loadMyFiles();
 };
+
 
 const confirmDeleteFolder = async (folderId: string) => {
   const ok = window.confirm(
