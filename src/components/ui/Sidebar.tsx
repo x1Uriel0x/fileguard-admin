@@ -53,6 +53,8 @@ const Sidebar = ({
     },
   ];
 
+  const filteredNavigationItems = navigationItems.filter(item => !item.adminOnly || isAdmin);
+
   const handleNavigation = (path: string) => {
     navigate(path);
     onClose?.();
@@ -87,7 +89,7 @@ const Sidebar = ({
         <nav className="flex-1 overflow-y-auto p-6 md:p-10">
           {/* Items */}
           <div className="flex-1 px-3 space-y-1 overflow-y-auto">
-            {navigationItems.map((item) => {
+            {filteredNavigationItems.map((item) => {
               const active = isActive(item.path);
               const showTooltip = hoveredItem === item.path && isCollapsed;
 
