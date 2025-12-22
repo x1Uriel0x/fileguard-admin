@@ -54,10 +54,10 @@ const SecurityFeatures = () => {
           <Icon name="Info" size={18} className="text-accent flex-shrink-0 mt-0.5" />
           <div className="flex-1 space-y-1">
             <p className="text-xs font-medium text-accent">
-              Credenciales de Prueba
+              Inicie session con su correo
             </p>
             <p className="text-xs text-muted-foreground">
-              Use las credenciales proporcionadas en la documentación para acceder al sistema de demostración
+              Use las credenciales de su cuenta para inicar se sion si no tiene una registrarse
             </p>
           </div>
         </div>
