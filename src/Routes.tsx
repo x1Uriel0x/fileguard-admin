@@ -10,6 +10,8 @@ import Register from "./pages/register";
 import FileUpload from "./pages/file-upload";
 import ProfilePage from "./pages/profile";
 import SettingsPage from "./pages/settings";
+import ForgotPassword from "./pages/forgot-password";
+import ResetPassword from "./pages/reset-password";
 
 import AuthRoleGuard from "./components/ui/AuthRoleGuard";
 
@@ -23,6 +25,8 @@ const Routes: React.FC = () => {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* 👑 SOLO ADMIN */}
         <Route
