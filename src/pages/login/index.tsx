@@ -63,13 +63,13 @@ const Login = () => {
 
 if (error || !data.session) {
   setErrors({
-    general: 'Credenciales incorrectas. Por favor, intente nuevamente.',
+    general: 'Ingrese sus credenciales para poder iniciar sesion ',
   });
   setIsLoading(false);
   return;
 }
 
-//NUEVO: verificar si está baneado
+//verificar si está baneado
 const userId = data.user.id;
 
 const { data: profile, error: profileError } = await supabase
@@ -99,7 +99,7 @@ if (profile?.banned) {
   return;
 }
 
-// ✅ Si llega aquí → login permitido
+// Si llega aquí → login permitido
 
 
       // Recordarme

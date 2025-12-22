@@ -172,6 +172,7 @@ const LoginForm = ({ onSubmit, isLoading, errors }: LoginFormProps) => {
         />
         <button
           type="button"
+          onClick={() => navigate('/forgot-password')}
           className="text-sm text-primary hover:text-primary/80 transition-smooth font-medium"
           disabled={isLoading}
         >
