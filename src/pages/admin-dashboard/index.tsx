@@ -132,6 +132,7 @@ const handleViewPermissions = (userId: string) => {
 
   const totalUsuarios = users.length;
   const sesionesActivas = users.filter((u) => u.status === "active").length;
+  const usuariosSuspendidos = users.filter((u) => u.status === "suspended").length;
 
   const breadcrumbItems = [
     { label: "Inicio", path: "/file-upload" },
@@ -184,6 +185,19 @@ const handleViewPermissions = (userId: string) => {
                 color: "#16A34A",
               }}
             />
+            <MetricsCard
+              metric={{
+                id: "active-sessions",
+                title: "Usuarios Suspendidos",
+                value: usuariosSuspendidos,
+                change: 0,
+                changeType: "increase",
+                icon: "Activity",
+                description: "Usuarios Restringidos",
+                color: "#16A34A",
+              }}
+            />
+
           </div>
 
           {/* USERS TABLE */}

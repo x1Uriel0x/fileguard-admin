@@ -10,6 +10,7 @@ import Register from "./pages/register";
 import FileUpload from "./pages/file-upload";
 import ProfilePage from "./pages/profile";
 import SettingsPage from "./pages/settings";
+import HelpPage from "./pages/help";
 import ForgotPassword from "./pages/forgot-password";
 import ResetPassword from "./pages/reset-password";
 
@@ -71,6 +72,15 @@ const Routes: React.FC = () => {
           element={
             <AuthRoleGuard allowedRoles={["admin", "user"]}>
               <SettingsPage />
+            </AuthRoleGuard>
+          }
+        />
+
+        <Route
+          path="/help"
+          element={
+            <AuthRoleGuard allowedRoles={["admin", "user"]}>
+              <HelpPage />
             </AuthRoleGuard>
           }
         />

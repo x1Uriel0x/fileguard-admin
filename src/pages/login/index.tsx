@@ -34,7 +34,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // 🔎 Validaciones básicas
+      // Validaciones básicas
       const newErrors: LoginFormErrors = {};
 
       if (!formData.email) {
@@ -87,7 +87,7 @@ if (profileError) {
   return;
 }
 
-// SI ESTÁ BANEADO → FUERA
+// SI ESTÁ BANEADO out
 if (profile?.banned) {
   await supabase.auth.signOut();
 

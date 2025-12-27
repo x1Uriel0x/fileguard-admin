@@ -167,7 +167,7 @@ const Sidebar = ({
               className="w-full justify-start"
               iconName="HelpCircle"
               iconSize={20}
-              onClick={() => console.log("Help clicked")}
+              onClick={() => handleNavigation('/help')}
             >
               {!isCollapsed && <span className="ml-3">Ayuda y Soporte</span>}
             </Button>

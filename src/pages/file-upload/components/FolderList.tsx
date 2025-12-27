@@ -24,7 +24,7 @@ const FolderList: React.FC<FolderListProps> = ({ folders, setCurrentFolder, setC
           <button
             className="absolute top-2 right-2 text-red-500 hover:text-red-700"
             onClick={(e) => {
-              e.stopPropagation(); // <-- evita abrir carpeta al borrar
+              e.stopPropagation(); // evita abrir carpeta al borrar
               onDelete(folder.id);
             }}
           >

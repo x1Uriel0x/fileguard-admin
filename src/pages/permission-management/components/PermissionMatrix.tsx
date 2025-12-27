@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Icon from '../../../components/AppIcon';
 import { Checkbox } from '../../../components/ui/Checkbox';
 import Button from '../../../components/ui/Button';
+import Input from '../../../components/ui/Input';
 import type { FileCategory, Permission, AccessLevel } from '../types';
 
 interface PermissionMatrixProps {
@@ -22,6 +23,7 @@ const PermissionMatrix = ({
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(categories.map((c) => c.id))
   );
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   const toggleCategory = (categoryId: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -54,6 +56,11 @@ const PermissionMatrix = ({
 
   const hasCustomPermissions = permissions.some((p) => p.customized && p.userId === userId);
 
+  const filteredCategories = categories.filter((category) =>
+    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    category.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-border">
@@ -74,6 +81,16 @@ const PermissionMatrix = ({
           )}
         </div>
 
+        <div className="mb-4">
+          <Input
+            type="text"
+            placeholder="Buscar carpetas..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+
         <div className="grid grid-cols-4 gap-4 text-xs font-medium text-muted-foreground">
           <div>Categoría</div>
           <div className="text-center">Ver</div>
@@ -84,7 +101,7 @@ const PermissionMatrix = ({
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-2">
-          {categories.map((category) => {
+          {filteredCategories.map((category) => {
             const permission = getPermissionForCategory(category.id);
             const isExpanded = expandedCategories.has(category.id);
             const access = permission?.access || {

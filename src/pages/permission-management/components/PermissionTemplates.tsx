@@ -5,7 +5,7 @@ interface PermissionTemplatesProps {
   templates: PermissionTemplate[];
   onApplyTemplate: (templateId: string) => void;
 
-  // YA ACEPTA PARÁMETROS ✔
+  // YA ACEPTA parametros
   onSaveAsTemplate: (name: string, permissions: Permission[]) => void;
 }
 

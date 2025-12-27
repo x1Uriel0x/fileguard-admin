@@ -25,7 +25,6 @@ const ResetPassword = () => {
       navigate('/reset-password');
     }
   };
-
   checkSession();
 }, [navigate]);
 
