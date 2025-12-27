@@ -7,14 +7,13 @@ import Select from '../../../components/ui/Select';
 import type { User, SortField, SortOrder } from '../types/';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { supabase } from '../../../lib/supabase';
+
 
 interface UserManagementTableProps {
   users: User[];
   onEditUser: (id: string) => void;
   onViewPermissions: (id: string) => void;
   onBanToggle: (id: string, banned: boolean) => void;
-  onRefreshUsers: () => void;
   loading?: boolean;  // ⬅ AÑADIMOS ESTA LÍNEA
 }
 
@@ -24,7 +23,6 @@ const UserManagementTable = ({
   onEditUser,
   onViewPermissions,
   onBanToggle,
-  onRefreshUsers,
   loading,
 }: UserManagementTableProps) => {
 
@@ -129,22 +127,7 @@ const UserManagementTable = ({
     }
   };
 
-  const toggleBanUser = async (userId: string, isBanned: boolean) => {
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      banned: !isBanned,
-      status: !isBanned ? "suspended" : "active",
-    })
-    .eq("id", userId);
 
-  if (error) {
-    console.error("Error al cambiar estado del usuario:", error);
-    return;
-  }
-
-  onRefreshUsers(); // refresca la tabla
-};
 
 
 
@@ -289,6 +272,17 @@ const UserManagementTable = ({
                <td className="py-3 px-4">
                 <div className="flex items-center justify-end gap-2">
 
+                  {/* Editar usuario */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEditUser(user.id)}
+                    iconName="Edit"
+                    iconSize={16}
+                  >
+                    Editar
+                  </Button>
+
                   {/* Ver permisos actuales */}
                   <Button
                     variant="ghost"
@@ -304,7 +298,7 @@ const UserManagementTable = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => toggleBanUser(user.id, !!user.banned)}
+                    onClick={() => onBanToggle(user.id, !!user.banned)}
                     iconName={user.banned ? "UserCheck" : "UserX"}
                     iconSize={16}
                 >
@@ -370,6 +364,16 @@ const UserManagementTable = ({
                 variant="outline"
                 size="sm"
                 fullWidth
+                onClick={() => onEditUser(user.id)}
+                iconName="Edit"
+              >
+                Editar
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                fullWidth
                 onClick={() => onViewPermissions(user.id)}
                 iconName="Shield"
               >
@@ -380,7 +384,7 @@ const UserManagementTable = ({
                 variant={user.banned ? "destructive" : "outline"}
                 size="sm"
                 fullWidth
-                onClick={() => toggleBanUser(user.id, !!user.banned)}
+                onClick={() => onBanToggle(user.id, !!user.banned)}
                 iconName={user.banned ? "UserCheck" : "UserX"}
               >
                 {user.banned ? "Reactivar" : "Suspender"}

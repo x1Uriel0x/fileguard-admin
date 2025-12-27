@@ -205,14 +205,13 @@ const handleViewPermissions = (userId: string) => {
           <UserManagementTable
             users={users}
             loading={loadingUsers}
-            onEditUser={(id) => {
+            onEditUser={(id: string) => {
               const u = users.find((u) => u.id === id);
               if (!u) return;
               handleBanToggle(u.id, u.banned);
             }}
             onViewPermissions={handleViewPermissions}
             onBanToggle={handleBanToggle}
-            onRefreshUsers={fetchUsers}
           />
 
 
