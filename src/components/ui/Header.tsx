@@ -20,14 +20,29 @@
     -------------------------------------- */
     useEffect(() => {
       const loadUser = async () => {
-        const { data } = await supabase.auth.getUser();
-        setUserData(data.user);
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData.user) {
+          // Fetch profile data including avatar_url
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", authData.user.id)
+            .single();
+
+          setUserData({
+            ...authData.user,
+            user_metadata: {
+              ...authData.user.user_metadata,
+              avatar_url: profile?.avatar_url || authData.user.user_metadata?.avatar_url,
+            },
+          });
+        }
       };
       loadUser();
     }, []);
 
     /* -------------------------------------
-              LOGOUT REAL
+                 LOGOUT REAL
     -------------------------------------- */
     const handleLogout = async () => {
       await supabase.auth.signOut();
@@ -118,8 +133,16 @@
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="flex items-center gap-2"
               >
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                  <Icon name="User" size={18} color="white" />
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center overflow-hidden">
+                  {userData?.user_metadata?.avatar_url ? (
+                    <img
+                      src={userData.user_metadata.avatar_url}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Icon name="User" size={18} color="white" />
+                  )}
                 </div>
                 <span className="hidden md:inline text-sm font-medium capitalize">
                   {userRole}

@@ -11,7 +11,6 @@ import { es } from 'date-fns/locale';
 
 interface UserManagementTableProps {
   users: User[];
-  onEditUser: (id: string) => void;
   onViewPermissions: (id: string) => void;
   onBanToggle: (id: string, banned: boolean) => void;
   loading?: boolean;  // ⬅ AÑADIMOS ESTA LÍNEA
@@ -20,7 +19,6 @@ interface UserManagementTableProps {
 
 const UserManagementTable = ({
   users,
-  onEditUser,
   onViewPermissions,
   onBanToggle,
   loading,
@@ -272,17 +270,6 @@ const UserManagementTable = ({
                <td className="py-3 px-4">
                 <div className="flex items-center justify-end gap-2">
 
-                  {/* Editar usuario */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEditUser(user.id)}
-                    iconName="Edit"
-                    iconSize={16}
-                  >
-                    Editar
-                  </Button>
-
                   {/* Ver permisos actuales */}
                   <Button
                     variant="ghost"
@@ -360,16 +347,6 @@ const UserManagementTable = ({
             </div>
 
             <div className="flex gap-2 pt-2 border-t border-border">
-              <Button
-                variant="outline"
-                size="sm"
-                fullWidth
-                onClick={() => onEditUser(user.id)}
-                iconName="Edit"
-              >
-                Editar
-              </Button>
-
               <Button
                 variant="outline"
                 size="sm"

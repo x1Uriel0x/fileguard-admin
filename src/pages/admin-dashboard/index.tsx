@@ -13,8 +13,6 @@ import UserManagementTable from "./components/UserManagementTable";
 import { supabase } from "../../lib/supabase";
 import type { User } from "./types";
 
-
-
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
 
@@ -23,80 +21,56 @@ const AdminDashboard: React.FC = () => {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const fetchUsers = async () => {
-    setLoadingUsers(true);
+ const fetchUsers = async () => {
+  setLoadingUsers(true);
 
-    //Usuario autenticado
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
 
-    // No hay sesión → login
-    if (!user) {
-      navigate("/login", { replace: true });
-      return;
-    }
+  // rol
+  const { data: myProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
 
-    // Perfil REAL desde profiles
-    const { data: myProfile, error: roleError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+  const isAdmin = myProfile?.role === "admin";
+  setIsAdmin(isAdmin);
 
-    if (roleError || !myProfile) {
-      console.error("Error loading role:", roleError);
-      navigate("/login", { replace: true });
-      return;
-    }
+  // perfiles
+  let query = supabase.from("profiles").select("*");
 
-    const admin = myProfile.role === "admin";
-    setIsAdmin(admin);
+  if (!isAdmin) {
+    query = query.eq("id", user.id);
+  }
 
-    //SI NO ES ADMIN → FUERA DEL DASHBOARD
-    if (!admin) {
-      navigate("/file-upload", { replace: true });
-      return;
-    }
+  const { data: profiles } = await query;
 
-    // Admin → puede ver todos los perfiles
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+  //  conteo archivos
+  const fileCounts = await loadFileCounts();
 
-    if (error) {
-      console.error("Error loading profiles:", error);
-      setLoadingUsers(false);
-      return;
-    }
-
-    
-
-    // Formatear datos
-    const formatted: User[] = (data || []).map((p) => ({
+  // unir datos
+  const formatted = (profiles || []).map((p) => ({
     id: p.id,
     name: p.name || "Sin nombre",
     email: p.email,
-    role: p.role,
-    banned: p.banned ?? false, // 👈 CLAVE
-    avatar:
-      p.avatar_url ||
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        p.name || "User"
-      )}`,
-    alt: p.name || "User",
-    status: p.banned ? "suspended" : "active",
-    lastActivity: new Date(p.created_at),
-    permissions: [],
-    filesAccessed: 0,
+    role: p.role as User['role'],
+    avatar: p.avatar_url
+  ? p.avatar_url
+  : `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || "User")}`,
+
+    alt: p.name || "Usuario",
+    lastActivity: new Date(p.created_at), // Use joined date as last activity
+    status: (p.banned ? "suspended" : "active") as User['status'],
+    permissions: [], // Empty permissions array
+    filesAccessed: fileCounts[p.id] ?? 0,
     joinedDate: new Date(p.created_at),
+    banned: p.banned || false,
   }));
 
-
-    setUsers(formatted);
-    setLoadingUsers(false);
-  };
+  setUsers(formatted);
+  setLoadingUsers(false);
+};
 
   const handleBanToggle = async (userId: string, banned: boolean) => {
   const confirmMsg = banned
@@ -119,12 +93,29 @@ const AdminDashboard: React.FC = () => {
   await fetchUsers(); // refrescar tabla
 };
 
-
 const handleViewPermissions = (userId: string) => {
   // navegar a la página de permisos con el usuario seleccionado
   navigate(`/permission-management?user=${userId}`);
 };
 
+const loadFileCounts = async () => {
+  const { data, error } = await supabase
+    .from("archivos")
+    .select("owner_id");
+
+  if (error) {
+    console.error("Error loading file counts:", error);
+    return {};
+  }
+
+  const map: Record<string, number> = {};
+
+  data?.forEach((row: any) => {
+    map[row.owner_id] = (map[row.owner_id] || 0) + 1;
+  });
+
+  return map;
+};
 
   useEffect(() => {
     fetchUsers();
@@ -205,11 +196,6 @@ const handleViewPermissions = (userId: string) => {
           <UserManagementTable
             users={users}
             loading={loadingUsers}
-            onEditUser={(id: string) => {
-              const u = users.find((u) => u.id === id);
-              if (!u) return;
-              handleBanToggle(u.id, u.banned);
-            }}
             onViewPermissions={handleViewPermissions}
             onBanToggle={handleBanToggle}
           />

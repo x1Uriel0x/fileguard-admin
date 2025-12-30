@@ -28,52 +28,45 @@ export default function ProfilePage() {
     fetchUser();
   }, []);
 
+  
 const uploadAvatar = async (file: File) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) return;
 
-  setAvatarUploading(true);
+  const fileExt = file.name.split(".").pop();
+  const fileName = `${user.id}.${fileExt}`;
+  const filePath = `avatars/${fileName}`;
 
-  const ext = file.name.split(".").pop();
-  const filePath = `${user.id}.${ext}`;
-
-  // 1. Subir a Storage
+  // Subir al storage
   const { error: uploadError } = await supabase.storage
     .from("avatars")
-    .upload(filePath, file, {
-      upsert: true,
-      cacheControl: '3600',
-      contentType: file.type
-    });
+    .upload(filePath, file, { upsert: true });
 
   if (uploadError) {
-    alert("Error subiendo avatar");
-    setAvatarUploading(false);
+    console.error("Error subiendo avatar:", uploadError);
     return;
   }
 
-  // 2. Obtener URL pública
+  // obtioene la url publica 
   const { data } = supabase.storage
     .from("avatars")
     .getPublicUrl(filePath);
 
-  // 3. Guardar en profiles
-  await supabase
+  const publicUrl = data.publicUrl;
+
+  // guarda la url en los perfiles 
+  const { error: updateError } = await supabase
     .from("profiles")
-    .update({ avatar_url: data.publicUrl })
+    .update({ avatar_url: publicUrl })
     .eq("id", user.id);
 
-  // 4. Actualizar estado local
-  setUser({
-    ...user,
-    user_metadata: {
-      ...user.user_metadata,
-      avatar_url: data.publicUrl,
-    },
-  });
-
-  setAvatarUploading(false);
+  if (updateError) {
+    console.error("Error guardando avatar_url:", updateError);
+  }
 };
-
 
   if (!user) return <p className="p-6">Cargando...</p>;
 
