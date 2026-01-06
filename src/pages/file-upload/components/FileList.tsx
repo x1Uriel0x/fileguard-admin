@@ -1,3 +1,4 @@
+import { useDraggable } from "@dnd-kit/core";
 import React, { useEffect, useState } from "react";
 import {
   FileImage,

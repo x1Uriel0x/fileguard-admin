@@ -5,7 +5,8 @@ import FileListItem from './components/FileListItem';
 import FolderList from './components/FolderList';
 import CreateFolderModal from './components/CreateFolderModal';
 import FileList from './components/FileList';
-
+import { DndContext } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
 import type { UploadedFile, FileMetadata } from "./types";
 import type { Folder } from "./types";
 
@@ -21,7 +22,6 @@ interface Permission {
   };
 }
 
-
 const FileUpload: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [myFiles, setMyFiles] = useState<FileMetadata[]>([]);
@@ -30,13 +30,14 @@ const FileUpload: React.FC = () => {
   /*const [role, setRole] = useState<string>("user");*/
   const [role, setRole] = useState<"admin" | "user">("user");
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
-  
-  const [currentFolderName, setCurrentFolderName] = useState<string | null>(null);
 
+  const [currentFolderName, setCurrentFolderName] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [permissions] = useState<Permission[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   //  Carga inicial
   useEffect(() => {
@@ -46,10 +47,25 @@ const FileUpload: React.FC = () => {
 useEffect(() => {
   if (!userId || !role) return;
 
+  setIsLoading(true);
   /* loadUsers(); */      // admin → todos
   loadFolders();    // admin → todo
-  loadMyFiles();
+  loadMyFiles().then(() => setIsLoading(false));
 }, [userId, role, currentFolder]);
+
+useEffect(() => {
+  const loadNotifications = async () => {
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    setNotifications(data || []);
+  };
+
+  loadNotifications();
+}, []);
 
   // Obtener usuario
  const checkUser = async () => {
@@ -69,8 +85,6 @@ useEffect(() => {
 
   console.log("checkUser → userId:", user?.id);
 console.log("checkUser → role:", profile?.role);
-
-
 
 };
 
@@ -216,7 +230,7 @@ if (currentFolder) {
 
  
 
-  const hasUploadPermission = (folderId: string | null): boolean => {
+  /*const hasUploadPermission = (folderId: string | null): boolean => {
   if (!folderId) return false;
 
   // Si es el dueño de la carpeta → puede subir
@@ -234,7 +248,29 @@ if (currentFolder) {
   );
 
   return !!permission;
+};*/
+
+const hasUploadPermission = async (folderId: string | null) => {
+  // Root: siempre permitir
+  if (!folderId) return true;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  // Traer rol
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role === "admin") return true; // 👈 ADMIN SIEMPRE
+
+  // Si no es admin, validar ownership
+  const folder = folders.find(f => f.id === folderId);
+  return folder?.owner_id === user.id;
 };
+
 
 
 
@@ -258,11 +294,18 @@ if (currentFolder) {
 
       const timestamp = Date.now();
       const fileName = `${timestamp}-${uploadedFile.file.name}`;
-      const filePath = `${userId}/${fileName}`;
+      const filePath = `${currentFolder ?? "root"}/${userId}/${fileName}`;
+
 
       const { error: uploadError } = await supabase.storage
-        .from("mis_archivos")
-        .upload(filePath, uploadedFile.file);
+  .from("mis_archivos")
+  .upload(filePath, uploadedFile.file, {
+    metadata: {
+      owner_id: userId,
+      folder_id: currentFolder ?? null,
+    },
+  });
+
 
       if (uploadError) throw uploadError;
 
@@ -274,6 +317,36 @@ if (currentFolder) {
       });
 
       if (dbError) throw dbError;
+
+      // Insertar notificación para el propietario de la carpeta
+      if (currentFolder) {
+        const folder = folders.find(f => f.id === currentFolder);
+        if (folder && folder.owner_id !== userId) {
+          await supabase.from("notifications").insert({
+            user_id: folder.owner_id,
+            title: "Nuevo archivo",
+            message: `Se ha subido un nuevo archivo "${uploadedFile.file.name}" a tu carpeta "${folder.name}"`,
+            type: "info",
+          });
+        }
+      }
+
+      // 🔔 Notificar a los administradores
+      const { data: admins } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("role", "admin");
+
+      if (admins) {
+        const notifications = admins.map(admin => ({
+          user_id: admin.id,
+          title: "Nuevo archivo subido",
+          message: `El usuario subió el archivo "${uploadedFile.file.name}"`,
+          type: "info",
+        }));
+
+        await supabase.from("notifications").insert(notifications);
+      }
 
       updateFileStatus(uploadedFile.file, { status: "success", progress: 100 });
 
@@ -291,8 +364,6 @@ if (currentFolder) {
 
 
 //verifica los permisos actualaes y decide 
-
-
   const updateFileStatus = (file: File, updates: Partial<UploadedFile>) => {
     setUploadedFiles(prev =>
       prev.map(f => f.file === file ? { ...f, ...updates } : f)
@@ -308,7 +379,23 @@ if (currentFolder) {
     .from("mis_archivos")
     .createSignedUrl(filePath, 3600);
 
-  if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  if (data?.signedUrl) {
+    const ext = nombre.split(".").pop()?.toLowerCase() || "";
+    const isImage = ["png", "jpg", "jpeg", "gif", "webp"].includes(ext);
+
+    if (isImage) {
+      // Descargar directamente para imágenes
+      const link = document.createElement("a");
+      link.href = data.signedUrl;
+      link.download = nombre;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      // Abrir en nueva pestaña para otros archivos
+      window.open(data.signedUrl, "_blank");
+    }
+  }
 };
 
 
@@ -369,6 +456,35 @@ const confirmDeleteFolder = async (folderId: string) => {
   await loadFolders();
 };
 
+// Función para mover archivos entre carpetas
+const moveFile = async (fileId: string, targetFolderId: string | null) => {
+  const { error } = await supabase
+    .from("archivos")
+    .update({ folder_id: targetFolderId })
+    .eq("id", fileId);
+
+  if (error) {
+    console.error("Error moviendo archivo:", error);
+    alert("Error al mover el archivo");
+    return;
+  }
+
+  // Recargar archivos
+  await loadMyFiles();
+};
+
+// Handler para drag and drop
+const handleDragEnd = (event: DragEndEvent) => {
+  const { active, over } = event;
+
+  if (!over) return;
+
+  const fileId = active.id as string;
+  const targetFolderId = over.id === "root" ? null : over.id as string;
+
+  moveFile(fileId, targetFolderId);
+};
+
 
 
   return (
@@ -376,7 +492,12 @@ const confirmDeleteFolder = async (folderId: string) => {
 
       <Header onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      {isLoading ? (
+        <div className="flex justify-center items-center py-16">
+          <p className="text-lg text-gray-600">Cargando archivos...</p>
+        </div>
+      ) : (
+        <div className="max-w-7xl mx-auto px-4 py-8">
 
         {/* Botón crear carpeta */}
         <CreateFolderModal
@@ -417,7 +538,26 @@ const confirmDeleteFolder = async (folderId: string) => {
 
 {/* Lista de archivos */}
         <FileList files={myFiles} onDownload={downloadFile} onDelete={deleteFile} />
-      </div>
+
+        {/* Notificaciones */}
+        {notifications.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Notificaciones
+            </h2>
+            <div className="space-y-4">
+              {notifications.map((notification, index) => (
+                <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
+                  <h3 className="font-semibold text-gray-800">{notification.title}</h3>
+                  <p className="text-gray-600">{notification.message}</p>
+                  <p className="text-sm text-gray-400">
+                    {new Date(notification.created_at).toLocaleString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Subir archivos */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
@@ -450,8 +590,9 @@ const confirmDeleteFolder = async (folderId: string) => {
             </div>
           )}
         </div>
+      </div>
+      )}
 
-        
     </div>
   );
 };

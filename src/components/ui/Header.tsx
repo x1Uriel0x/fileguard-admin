@@ -10,10 +10,12 @@
   }
 
   const Header = ({ onMenuToggle, showMenuButton = true }: HeaderProps) => {
-    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-    const [userData, setUserData] = useState<any>(null);
-
-    const navigate = useNavigate();
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const navigate = useNavigate();
 
     /* -------------------------------------
           Cargar datos del usuario
@@ -34,12 +36,75 @@
             user_metadata: {
               ...authData.user.user_metadata,
               avatar_url: profile?.avatar_url || authData.user.user_metadata?.avatar_url,
+              role: profile?.role || authData.user.user_metadata?.role,
             },
           });
         }
       };
       loadUser();
     }, []);
+
+    /* -------------------------------------
+          Cargar notificaciones
+    -------------------------------------- */
+    useEffect(() => {
+      if (!userData?.id) return;
+
+      const loadNotifications = async () => {
+        const { data, error } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", userData.id)
+          .order("created_at", { ascending: false });
+
+        console.log("Loading notifications for user:", userData.id);
+        console.log("Notifications data:", data);
+        console.log("Notifications error:", error);
+
+        if (!error && data) {
+          setNotifications(data);
+          setUnreadCount(data.filter(n => !n.read).length);
+          console.log("Unread count:", data.filter(n => !n.read).length);
+        }
+      };
+
+      loadNotifications();
+
+      // Suscripción en tiempo real para nuevas notificaciones
+      const channel = supabase
+        .channel('notifications')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userData.id}`,
+        }, (payload) => {
+          setNotifications(prev => [payload.new, ...prev]);
+          setUnreadCount(prev => prev + 1);
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [userData?.id]);
+
+    /* -------------------------------------
+          Marcar notificación como leída
+    -------------------------------------- */
+    const markAsRead = async (notificationId: string) => {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("id", notificationId);
+
+      if (!error) {
+        setNotifications(prev =>
+          prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    };
 
     /* -------------------------------------
                  LOGOUT REAL
@@ -114,16 +179,82 @@
           </div>
 
           <div className="flex items-center gap-3">
-            {/* NOTIFICACIONES */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative"
-              iconName="Bell"
-              iconSize={20}
-            >
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full" />
-            </Button>
+            {/* NOTIFICACIONES - Solo para admins */}
+            {userRole === "admin" && (
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative"
+                  iconName="Bell"
+                  iconSize={20}
+                  onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}
+                >
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full" />
+                  )}
+                </Button>
+
+                {/* MENÚ DESPLEGABLE DE NOTIFICACIONES */}
+                {isNotificationMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-200"
+                      onClick={() => setIsNotificationMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-80 bg-popover border border-border rounded-md shadow-lg z-300 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-border">
+                        <p className="text-sm font-medium text-foreground">
+                          Notificaciones
+                        </p>
+                      </div>
+
+                      <div className="max-h-96 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="px-4 py-8 text-center text-muted-foreground">
+                            <p className="text-sm">No hay notificaciones</p>
+                          </div>
+                        ) : (
+                          notifications.map((notification, index) => (
+                            <div
+                              key={notification.id}
+                              className={`px-4 py-3 ${index < notifications.length - 1 ? 'border-b border-border' : ''} hover:bg-muted cursor-pointer`}
+                              onClick={() => !notification.read && markAsRead(notification.id)}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                                  notification.type === 'info' ? 'bg-blue-500' :
+                                  notification.type === 'warning' ? 'bg-yellow-500' :
+                                  notification.type === 'success' ? 'bg-green-500' :
+                                  'bg-gray-500'
+                                }`}></div>
+                                <div className="flex-1">
+                                  <p className={`text-sm font-medium ${notification.read ? 'text-muted-foreground' : 'text-foreground'}`}>
+                                    {notification.title}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {notification.message}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-2">
+                                    {new Date(notification.created_at).toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="border-t border-border py-2">
+                        <button className="w-full px-4 py-2 text-left text-sm hover:bg-muted text-primary">
+                          Ver todas las notificaciones
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* MENÚ DEL USUARIO */}
             <div className="relative">
